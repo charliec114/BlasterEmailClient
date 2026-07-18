@@ -1,4 +1,4 @@
-import { composePrompt, cleanupSubject, stripMetaCommentary, subjectPrompt, summarizePrompt } from './aiPrompts'
+import { AI_SYSTEM_PROMPT, composePrompt, cleanupSubject, stripMetaCommentary, subjectPrompt, summarizePrompt } from './aiPrompts'
 
 export interface CloudAiSettings {
   apiKey: string
@@ -21,7 +21,13 @@ async function generate(settings: CloudAiSettings, prompt: string): Promise<stri
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.apiKey}` },
-    body: JSON.stringify({ model: settings.model, messages: [{ role: 'user', content: prompt }] })
+    body: JSON.stringify({
+      model: settings.model,
+      messages: [
+        { role: 'system', content: AI_SYSTEM_PROMPT },
+        { role: 'user', content: prompt }
+      ]
+    })
   })
 
   if (!res.ok) {

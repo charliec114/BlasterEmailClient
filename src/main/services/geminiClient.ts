@@ -1,4 +1,4 @@
-import { composePrompt, cleanupSubject, stripMetaCommentary, subjectPrompt, summarizePrompt } from './aiPrompts'
+import { AI_SYSTEM_PROMPT, composePrompt, cleanupSubject, stripMetaCommentary, subjectPrompt, summarizePrompt } from './aiPrompts'
 
 export interface CloudAiSettings {
   apiKey: string
@@ -22,7 +22,10 @@ async function generate(settings: CloudAiSettings, prompt: string): Promise<stri
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: AI_SYSTEM_PROMPT }] },
+      contents: [{ parts: [{ text: prompt }] }]
+    })
   })
 
   if (!res.ok) {

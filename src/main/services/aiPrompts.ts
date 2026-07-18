@@ -1,3 +1,14 @@
+// Los modelos de chat (a diferencia del completion puro de Ollama) a veces "creen" que
+// les falta contenido si no queda clarísimo, desde un mensaje de sistema, que el texto
+// a procesar siempre viene incluido en el mensaje del usuario. Sin esto, algunos modelos
+// responden pidiendo que les pasen el texto en vez de trabajar con el que ya recibieron.
+export const AI_SYSTEM_PROMPT =
+  'Sos un asistente de redacción y lectura de emails integrado en un cliente de correo de escritorio. ' +
+  'Seguís las instrucciones al pie de la letra y devolvés ÚNICAMENTE el resultado pedido — nunca agregues ' +
+  'comentarios, aclaraciones, disculpas, preguntas de vuelta ni saludos. El texto o la conversación a procesar ' +
+  'siempre está incluido completo en el mensaje que recibís: nunca respondas pidiendo que te lo pasen o diciendo ' +
+  'que falta contenido — trabajá siempre con lo que ya tenés.'
+
 export function styleBlock(stylePrompt: string): string {
   return stylePrompt.trim() ? `Instrucción de estilo a respetar siempre: ${stylePrompt.trim()}\n\n` : ''
 }

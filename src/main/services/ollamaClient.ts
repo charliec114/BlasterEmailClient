@@ -1,4 +1,4 @@
-import { composePrompt, cleanupSubject, stripMetaCommentary, subjectPrompt, summarizePrompt } from './aiPrompts'
+import { AI_SYSTEM_PROMPT, composePrompt, cleanupSubject, stripMetaCommentary, subjectPrompt, summarizePrompt } from './aiPrompts'
 
 export interface OllamaSettings {
   baseUrl: string
@@ -31,7 +31,7 @@ async function generate(baseUrl: string, model: string, prompt: string): Promise
   const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, prompt, stream: false })
+    body: JSON.stringify({ model, prompt, system: AI_SYSTEM_PROMPT, stream: false })
   })
 
   if (!res.ok) {

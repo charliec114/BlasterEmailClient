@@ -1,4 +1,4 @@
-import { composePrompt, cleanupSubject, stripMetaCommentary, subjectPrompt, summarizePrompt } from './aiPrompts'
+import { AI_SYSTEM_PROMPT, composePrompt, cleanupSubject, stripMetaCommentary, subjectPrompt, summarizePrompt } from './aiPrompts'
 
 export interface CloudAiSettings {
   apiKey: string
@@ -28,6 +28,7 @@ async function generate(settings: CloudAiSettings, prompt: string): Promise<stri
     body: JSON.stringify({
       model: settings.model,
       max_tokens: 1024,
+      system: AI_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: prompt }]
     })
   })

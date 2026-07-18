@@ -36,6 +36,7 @@ export default function MessageList() {
   }
 
   const threads = isUnified ? unifiedInboxThreads : threadsByFolder[selectedFolderId ?? ''] ?? []
+  const composeAccountId = selectedAccountId ?? accounts[0]?.id ?? null
 
   return (
     <section className="message-list">
@@ -44,8 +45,8 @@ export default function MessageList() {
         <button
           type="button"
           className="new-message-btn"
-          disabled={!selectedAccountId}
-          onClick={() => selectedAccountId && openCompose({ accountId: selectedAccountId })}
+          disabled={!composeAccountId}
+          onClick={() => composeAccountId && openCompose({ accountId: composeAccountId })}
         >
           {t('messageList.newMessage')}
         </button>
