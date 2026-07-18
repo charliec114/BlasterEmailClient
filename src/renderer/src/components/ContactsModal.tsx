@@ -34,9 +34,14 @@ export default function ContactsModal({ onClose }: ContactsModalProps) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box contacts-box" onClick={(e) => e.stopPropagation()}>
-        <h2>{t('contactsModal.title')}</h2>
+    <div className="modal-overlay">
+      <div className="modal-box contacts-box">
+        <div className="modal-header-row">
+          <h2>{t('contactsModal.title')}</h2>
+          <button type="button" className="modal-close-btn" title={t('common.close')} onClick={onClose}>
+            ✕
+          </button>
+        </div>
 
         {loading && <p className="sidebar-empty">{t('common.loading')}</p>}
         {!loading && contacts.length === 0 && <p className="sidebar-empty">{t('contactsModal.empty')}</p>}

@@ -19,6 +19,8 @@ export const IPC = {
   ollamaGetSummary: 'ollama:get-summary',
   ollamaComposeAssist: 'ollama:compose-assist',
   ollamaSuggestSubject: 'ollama:suggest-subject',
+  apiKeysSet: 'apiKeys:set',
+  apiKeysStatus: 'apiKeys:status',
   contactsSearch: 'contacts:search',
   contactsList: 'contacts:list',
   contactsRemove: 'contacts:remove',

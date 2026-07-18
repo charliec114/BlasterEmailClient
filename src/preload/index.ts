@@ -55,6 +55,10 @@ const api = {
     list: (): Promise<Contact[]> => ipcRenderer.invoke(IPC.contactsList),
     remove: (email: string): Promise<void> => ipcRenderer.invoke(IPC.contactsRemove, email)
   },
+  apiKeys: {
+    setKey: (provider: string, key: string): Promise<void> => ipcRenderer.invoke(IPC.apiKeysSet, provider, key),
+    getStatus: (): Promise<Record<string, boolean>> => ipcRenderer.invoke(IPC.apiKeysStatus)
+  },
   dialog: {
     pickFiles: (): Promise<AttachmentRef[]> => ipcRenderer.invoke(IPC.dialogPickFiles)
   }

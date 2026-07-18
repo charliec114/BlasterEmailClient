@@ -45,6 +45,10 @@ interface BlasterApi {
     list: () => Promise<Contact[]>
     remove: (email: string) => Promise<void>
   }
+  apiKeys: {
+    setKey: (provider: string, key: string) => Promise<void>
+    getStatus: () => Promise<Record<string, boolean>>
+  }
   dialog: {
     pickFiles: () => Promise<AttachmentRef[]>
   }

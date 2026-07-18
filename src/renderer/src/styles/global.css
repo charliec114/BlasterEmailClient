@@ -190,15 +190,6 @@ html::-webkit-scrollbar,
   color: var(--text-primary);
 }
 
-.message-account-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  margin-right: 5px;
-  flex-shrink: 0;
-}
-
 .account-name-text {
   flex: 1;
   overflow: hidden;
@@ -786,6 +777,27 @@ html::-webkit-scrollbar,
   color: var(--text-primary);
 }
 
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.modal-back-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0;
+  line-height: 1;
+}
+
+.modal-back-btn:hover {
+  color: var(--text-primary);
+}
+
 .ai-undo-btn {
   border-color: var(--border-color);
   color: var(--text-secondary);
@@ -1128,6 +1140,50 @@ html::-webkit-scrollbar,
 .protocol-toggle button.active {
   background: var(--accent);
   color: white;
+}
+
+.protocol-toggle button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.provider-ready-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+
+.provider-ready-dot.ready {
+  background: #2ea043;
+  opacity: 1;
+}
+
+.ai-provider-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 0 0 2px;
+}
+
+.ai-provider-status {
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ai-provider-status.ready {
+  background: rgba(46, 160, 67, 0.12);
+  color: #2ea043;
+}
+
+.ai-provider-status.not-ready {
+  background: rgba(255, 55, 95, 0.12);
+  color: #ff375f;
 }
 
 fieldset {

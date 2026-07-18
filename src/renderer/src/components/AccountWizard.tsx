@@ -197,9 +197,14 @@ export default function AccountWizard({ editingAccount, onClose }: AccountWizard
 
   if (mode === 'picker') {
     return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-box provider-picker" onClick={(e) => e.stopPropagation()}>
-          <h2>{t('accountWizard.addTitle')}</h2>
+      <div className="modal-overlay">
+        <div className="modal-box provider-picker">
+          <div className="modal-header-row">
+            <h2>{t('accountWizard.addTitle')}</h2>
+            <button type="button" className="modal-close-btn" title={t('common.close')} onClick={onClose}>
+              ✕
+            </button>
+          </div>
 
           <div className="provider-list">
             <button
@@ -240,15 +245,20 @@ export default function AccountWizard({ editingAccount, onClose }: AccountWizard
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="modal-box">
         <div className="modal-header-row">
           <h2>{isEditing ? t('accountWizard.editTitle') : t('accountWizard.addTitle')}</h2>
-          {!isEditing && (
-            <button type="button" className="modal-close-btn" title={t('accountWizard.back')} onClick={() => setMode('picker')}>
-              ← {t('accountWizard.back')}
+          <div className="modal-header-actions">
+            {!isEditing && (
+              <button type="button" className="modal-back-btn" title={t('accountWizard.back')} onClick={() => setMode('picker')}>
+                ← {t('accountWizard.back')}
+              </button>
+            )}
+            <button type="button" className="modal-close-btn" title={t('common.close')} onClick={onClose}>
+              ✕
             </button>
-          )}
+          </div>
         </div>
 
         <div className="form-grid">

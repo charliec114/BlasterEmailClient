@@ -7,6 +7,7 @@ import { registerSettingsIpc } from './ipc/settings'
 import { registerOllamaIpc } from './ipc/ollama'
 import { registerContactsIpc } from './ipc/contacts'
 import { registerDialogIpc } from './ipc/dialog'
+import { registerApiKeysIpc } from './ipc/apiKeys'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -62,6 +63,7 @@ app.whenReady().then(() => {
   registerOllamaIpc()
   registerContactsIpc()
   registerDialogIpc()
+  registerApiKeysIpc()
 
   createWindow()
 

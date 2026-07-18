@@ -55,18 +55,11 @@ export default function MessageList() {
           <li key={thread.id}>
             <button
               className={`message-row ${thread.id === selectedThreadId ? 'active' : ''} ${thread.hasUnread ? 'unread' : ''}`}
+              style={isUnified ? { borderLeft: `4px solid ${accounts.find((a) => a.id === thread.accountId)?.color ?? 'transparent'}` } : undefined}
               onClick={() => selectThread(thread.id)}
             >
               <div className="message-row-top">
-                <span className="message-participants">
-                  {isUnified && (
-                    <span
-                      className="message-account-dot"
-                      style={{ backgroundColor: accounts.find((a) => a.id === thread.accountId)?.color }}
-                    />
-                  )}
-                  {thread.participants.map((p) => p.name).join(', ')}
-                </span>
+                <span className="message-participants">{thread.participants.map((p) => p.name).join(', ')}</span>
                 <span className="message-date">{formatListDate(thread.lastMessageDate)}</span>
               </div>
               <div className="message-row-subject">

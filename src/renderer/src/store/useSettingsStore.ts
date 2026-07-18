@@ -2,6 +2,7 @@ import { create } from 'zustand'
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 export type Language = 'es' | 'en'
+export type AiProvider = 'ollama' | 'openai' | 'gemini' | 'anthropic'
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -12,22 +13,33 @@ interface SettingsStore {
   language: Language
   soundEnabled: boolean
   loaded: boolean
+  aiProvider: AiProvider
+  aiStylePrompt: string
   ollamaBaseUrl: string
   ollamaModel: string
-  ollamaStylePrompt: string
   ollamaModels: string[]
   ollamaError: string | null
   ollamaLoadingModels: boolean
+  openaiModel: string
+  geminiModel: string
+  anthropicModel: string
+  apiKeyStatus: Record<string, boolean>
   sidebarOrder: string[]
   collapsedAccountIds: string[]
   loadSettings: () => Promise<void>
   setTheme: (theme: ThemePreference) => Promise<void>
   setLanguage: (language: Language) => Promise<void>
   setSoundEnabled: (enabled: boolean) => Promise<void>
+  setAiProvider: (provider: AiProvider) => Promise<void>
+  setAiStylePrompt: (stylePrompt: string) => Promise<void>
   setOllamaBaseUrl: (baseUrl: string) => Promise<void>
   setOllamaModel: (model: string) => Promise<void>
-  setOllamaStylePrompt: (stylePrompt: string) => Promise<void>
   refreshOllamaModels: () => Promise<void>
+  setOpenaiModel: (model: string) => Promise<void>
+  setGeminiModel: (model: string) => Promise<void>
+  setAnthropicModel: (model: string) => Promise<void>
+  setApiKey: (provider: string, key: string) => Promise<void>
+  refreshApiKeyStatus: () => Promise<void>
   setSidebarOrder: (order: string[]) => Promise<void>
   toggleAccountCollapsed: (accountId: string) => Promise<void>
 }
@@ -55,12 +67,17 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   language: 'es',
   soundEnabled: true,
   loaded: false,
+  aiProvider: 'ollama',
+  aiStylePrompt: '',
   ollamaBaseUrl: 'http://localhost:11434',
   ollamaModel: '',
-  ollamaStylePrompt: '',
   ollamaModels: [],
   ollamaError: null,
   ollamaLoadingModels: false,
+  openaiModel: '',
+  geminiModel: '',
+  anthropicModel: '',
+  apiKeyStatus: {},
   sidebarOrder: [],
   collapsedAccountIds: [],
 
@@ -70,18 +87,24 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const soundEnabled = all.soundEnabled !== 'false'
     applyTheme(theme)
     const language = (all.language as Language | undefined) ?? 'es'
+    const aiProvider = (all.aiProvider as AiProvider | undefined) ?? 'ollama'
     set({
       theme,
       language,
       soundEnabled,
       loaded: true,
+      aiProvider,
+      aiStylePrompt: all.aiStylePrompt || '',
       ollamaBaseUrl: all.ollamaBaseUrl || 'http://localhost:11434',
       ollamaModel: all.ollamaModel || '',
-      ollamaStylePrompt: all.ollamaStylePrompt || '',
+      openaiModel: all.openaiModel || '',
+      geminiModel: all.geminiModel || '',
+      anthropicModel: all.anthropicModel || '',
       sidebarOrder: parseJsonArray(all.sidebarOrder),
       collapsedAccountIds: parseJsonArray(all.collapsedAccountIds)
     })
     get().refreshOllamaModels()
+    get().refreshApiKeyStatus()
   },
 
   setTheme: async (theme) => {
@@ -100,6 +123,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     await window.api.settings.set('soundEnabled', String(enabled))
   },
 
+  setAiProvider: async (provider) => {
+    set({ aiProvider: provider })
+    await window.api.settings.set('aiProvider', provider)
+  },
+
+  setAiStylePrompt: async (stylePrompt) => {
+    set({ aiStylePrompt: stylePrompt })
+    await window.api.settings.set('aiStylePrompt', stylePrompt)
+  },
+
   setOllamaBaseUrl: async (baseUrl) => {
     set({ ollamaBaseUrl: baseUrl })
     await window.api.settings.set('ollamaBaseUrl', baseUrl)
@@ -110,11 +143,6 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     await window.api.settings.set('ollamaModel', model)
   },
 
-  setOllamaStylePrompt: async (stylePrompt) => {
-    set({ ollamaStylePrompt: stylePrompt })
-    await window.api.settings.set('ollamaStylePrompt', stylePrompt)
-  },
-
   refreshOllamaModels: async () => {
     set({ ollamaLoadingModels: true, ollamaError: null })
     try {
@@ -123,6 +151,31 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     } catch (error) {
       set({ ollamaModels: [], ollamaError: errorMessage(error), ollamaLoadingModels: false })
     }
+  },
+
+  setOpenaiModel: async (model) => {
+    set({ openaiModel: model })
+    await window.api.settings.set('openaiModel', model)
+  },
+
+  setGeminiModel: async (model) => {
+    set({ geminiModel: model })
+    await window.api.settings.set('geminiModel', model)
+  },
+
+  setAnthropicModel: async (model) => {
+    set({ anthropicModel: model })
+    await window.api.settings.set('anthropicModel', model)
+  },
+
+  setApiKey: async (provider, key) => {
+    await window.api.apiKeys.setKey(provider, key)
+    set({ apiKeyStatus: { ...get().apiKeyStatus, [provider]: key.trim() !== '' } })
+  },
+
+  refreshApiKeyStatus: async () => {
+    const status = await window.api.apiKeys.getStatus()
+    set({ apiKeyStatus: status })
   },
 
   setSidebarOrder: async (order) => {
