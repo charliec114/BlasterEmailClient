@@ -69,6 +69,39 @@ button {
   cursor: pointer;
 }
 
+/* Scrollbars propios: reemplazan el scrollbar nativo del sistema (GTK en Linux, etc.)
+   por uno delgado y acorde al tema, en vez del que rompía el diseño. */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+html::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--border-color);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-secondary);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 220px 340px 1fr;
@@ -97,6 +130,43 @@ button {
   margin-bottom: 14px;
 }
 
+.sidebar-account.dragging,
+.sidebar-unified-row.dragging {
+  opacity: 0.4;
+}
+
+.sidebar-unified-row {
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.sidebar-account {
+  position: relative;
+}
+
+.sidebar-account.drop-before::before,
+.sidebar-unified-row.drop-before::before,
+.sidebar-account.drop-after::after,
+.sidebar-unified-row.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+
+.sidebar-account.drop-before::before,
+.sidebar-unified-row.drop-before::before {
+  top: -3px;
+}
+
+.sidebar-account.drop-after::after,
+.sidebar-unified-row.drop-after::after {
+  bottom: -3px;
+}
+
 .sidebar-account-name {
   display: flex;
   align-items: center;
@@ -104,6 +174,29 @@ button {
   padding: 4px 10px;
   font-weight: 600;
   font-size: 12px;
+}
+
+.collapse-account-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 10px;
+  padding: 0 2px 0 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.collapse-account-btn:hover {
+  color: var(--text-primary);
+}
+
+.message-account-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 5px;
+  flex-shrink: 0;
 }
 
 .account-name-text {
@@ -378,6 +471,10 @@ button {
   font-weight: 700;
   font-size: 12px;
   color: var(--accent);
+}
+
+.ai-summary-card p {
+  user-select: text;
 }
 
 .ai-summary-stale {
@@ -732,6 +829,52 @@ button {
   border-radius: 6px;
   padding: 6px 8px;
   resize: vertical;
+}
+
+.provider-picker {
+  width: 380px;
+}
+
+.provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.provider-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-list);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.provider-btn:hover:not(:disabled) {
+  background: var(--row-hover);
+}
+
+.provider-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.provider-btn-icon {
+  font-size: 16px;
+}
+
+.provider-divider {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 14px 0 8px;
 }
 
 .compose-box {

@@ -24,6 +24,7 @@ interface BlasterApi {
     sync: (accountId: string) => Promise<void>
     listFolders: (accountId: string) => Promise<MailFolder[]>
     listThreads: (accountId: string, folderId: string) => Promise<Thread[]>
+    listUnifiedInbox: () => Promise<Thread[]>
     send: (input: SendMailInput) => Promise<void>
     markThreadRead: (accountId: string, folderId: string, threadId: string) => Promise<void>
     saveAttachment: (attachmentId: string) => Promise<string | null>

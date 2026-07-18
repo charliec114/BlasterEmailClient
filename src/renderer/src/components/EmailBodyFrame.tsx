@@ -5,12 +5,21 @@ const INJECTED_HEAD = `
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src * data: blob:; style-src 'unsafe-inline'">
   <style>
-    html, body { background: #e9e9ea; }
-    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.5; margin: 0; padding: 12px; word-wrap: break-word; }
+    /* html con overflow != visible "rompe" la propagación del scroll al viewport (regla del
+       spec de CSSOM-View): así el scroll horizontal pasa a vivir en el body como un elemento
+       normal, en vez del viewport raíz — que en Chromium/Linux a veces pinta con el scrollbar
+       nativo del sistema en lugar de respetar ::-webkit-scrollbar. */
+    html { overflow: hidden; margin: 0; background: #e9e9ea; }
+    body { overflow-x: auto; overflow-y: hidden; background: #e9e9ea; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.5; margin: 0; padding: 12px; word-wrap: break-word; }
     img { max-width: 100%; }
     summary { cursor: pointer; color: #0a84ff; font-size: 12px; margin: 10px 0 6px; }
     details[open] summary { margin-bottom: 10px; }
     blockquote { border-left: 2px solid #c7c7cc; margin: 4px 0; padding-left: 10px; color: #55555a; }
+    * { scrollbar-width: thin; scrollbar-color: #c7c7cc transparent; }
+    *::-webkit-scrollbar { width: 10px; height: 10px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb { background-color: #c7c7cc; border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+    *::-webkit-scrollbar-thumb:hover { background-color: #a8a8ad; }
   </style>
 `
 

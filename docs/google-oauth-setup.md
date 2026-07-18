@@ -1,8 +1,19 @@
-# Integración con Gmail (OAuth2) — qué falta conseguir
+# Integración con Gmail (OAuth2)
 
-Estado actual: el motor de OAuth ya está construido en el código (login por navegador,
-refresco de tokens, cuentas OAuth) pero está en **standby** — no hay ningún botón
-visible en la app todavía. Para retomarlo hace falta esto, en este orden:
+**Estado: activa.** El proyecto de Google Cloud (`blaster-email-client`, cuenta
+`charliec114@gmail.com`) ya está creado, el Client ID/Secret de tipo "Desktop app" ya
+están hardcodeados en `src/main/services/googleOAuth.ts`, y el botón "Conectar cuenta
+de Google" ya está disponible dentro de "Agregar cuenta".
+
+⚠️ La app sigue en modo **Testing** en la pantalla de consentimiento de Google — el
+refresh token puede expirar cada 7 días y va a pedir volver a loguearse. Solo las
+cuentas agregadas como "Test user" en el proyecto pueden conectarse (hoy:
+`charliec114@gmail.com`). Para agregar más cuentas de prueba, o para sacar la app de
+Testing (requiere el proceso de verificación de Google), hay que volver a
+console.cloud.google.com → OAuth consent screen.
+
+Lo que sigue debajo queda como referencia de cómo se armó, por si hay que repetirlo
+para otro proyecto o cuenta de Google.
 
 ## 1. Crear el proyecto en Google Cloud Console
 

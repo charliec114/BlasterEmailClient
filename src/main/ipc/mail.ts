@@ -2,7 +2,12 @@ import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { writeFile } from 'fs/promises'
 import { IPC } from '@shared/ipc'
 import type { SendMailInput } from '@shared/types'
-import { getAttachmentContent, listFoldersForAccount, listThreadsForFolder } from '../services/mailRepository'
+import {
+  getAttachmentContent,
+  listFoldersForAccount,
+  listThreadsForFolder,
+  listUnifiedInboxThreads
+} from '../services/mailRepository'
 import { markThreadRead, syncAccount } from '../services/syncService'
 import { sendMail } from '../services/mailSend'
 
@@ -14,6 +19,8 @@ export function registerMailIpc(): void {
   ipcMain.handle(IPC.mailListThreads, (_event, accountId: string, folderId: string) =>
     listThreadsForFolder(accountId, folderId)
   )
+
+  ipcMain.handle(IPC.mailListUnifiedInbox, () => listUnifiedInboxThreads())
 
   ipcMain.handle(IPC.mailSend, (_event, input: SendMailInput) => sendMail(input))
 

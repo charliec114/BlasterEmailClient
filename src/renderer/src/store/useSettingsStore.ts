@@ -18,6 +18,8 @@ interface SettingsStore {
   ollamaModels: string[]
   ollamaError: string | null
   ollamaLoadingModels: boolean
+  sidebarOrder: string[]
+  collapsedAccountIds: string[]
   loadSettings: () => Promise<void>
   setTheme: (theme: ThemePreference) => Promise<void>
   setLanguage: (language: Language) => Promise<void>
@@ -26,6 +28,18 @@ interface SettingsStore {
   setOllamaModel: (model: string) => Promise<void>
   setOllamaStylePrompt: (stylePrompt: string) => Promise<void>
   refreshOllamaModels: () => Promise<void>
+  setSidebarOrder: (order: string[]) => Promise<void>
+  toggleAccountCollapsed: (accountId: string) => Promise<void>
+}
+
+function parseJsonArray(value: string | undefined): string[] {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
+  } catch {
+    return []
+  }
 }
 
 function applyTheme(theme: ThemePreference): void {
@@ -47,6 +61,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   ollamaModels: [],
   ollamaError: null,
   ollamaLoadingModels: false,
+  sidebarOrder: [],
+  collapsedAccountIds: [],
 
   loadSettings: async () => {
     const all = await window.api.settings.getAll()
@@ -61,7 +77,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       loaded: true,
       ollamaBaseUrl: all.ollamaBaseUrl || 'http://localhost:11434',
       ollamaModel: all.ollamaModel || '',
-      ollamaStylePrompt: all.ollamaStylePrompt || ''
+      ollamaStylePrompt: all.ollamaStylePrompt || '',
+      sidebarOrder: parseJsonArray(all.sidebarOrder),
+      collapsedAccountIds: parseJsonArray(all.collapsedAccountIds)
     })
     get().refreshOllamaModels()
   },
@@ -105,5 +123,17 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     } catch (error) {
       set({ ollamaModels: [], ollamaError: errorMessage(error), ollamaLoadingModels: false })
     }
+  },
+
+  setSidebarOrder: async (order) => {
+    set({ sidebarOrder: order })
+    await window.api.settings.set('sidebarOrder', JSON.stringify(order))
+  },
+
+  toggleAccountCollapsed: async (accountId) => {
+    const current = get().collapsedAccountIds
+    const next = current.includes(accountId) ? current.filter((id) => id !== accountId) : [...current, accountId]
+    set({ collapsedAccountIds: next })
+    await window.api.settings.set('collapsedAccountIds', JSON.stringify(next))
   }
 }))

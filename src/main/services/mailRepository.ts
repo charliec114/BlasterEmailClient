@@ -290,3 +290,13 @@ export function listThreadsForFolder(accountId: string, folderId: string): Threa
 
   return threads.sort((a, b) => new Date(b.lastMessageDate).getTime() - new Date(a.lastMessageDate).getTime())
 }
+
+export function listUnifiedInboxThreads(): Thread[] {
+  const inboxFolders = getDb()
+    .prepare(`SELECT id, account_id FROM folders WHERE kind = 'inbox'`)
+    .all() as { id: string; account_id: string }[]
+
+  const threads = inboxFolders.flatMap((folder) => listThreadsForFolder(folder.account_id, folder.id))
+
+  return threads.sort((a, b) => new Date(b.lastMessageDate).getTime() - new Date(a.lastMessageDate).getTime())
+}

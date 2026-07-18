@@ -2,7 +2,6 @@ import { randomBytes, createHash } from 'crypto'
 import http from 'http'
 import type { AddressInfo } from 'net'
 import { shell } from 'electron'
-import { getAllSettings } from './settingsRepository'
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
@@ -10,18 +9,65 @@ const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
 const GMAIL_SCOPE = 'https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email'
 const AUTH_TIMEOUT_MS = 3 * 60 * 1000
 
+// Client ID/Secret del proyecto "blaster-email-client" en Google Cloud Console, tipo
+// "Desktop app" — Google no considera confidencial el secreto de este tipo de cliente
+// (usa PKCE como capa de seguridad real), por eso puede vivir hardcodeado en el código
+// en vez de pedírselo a cada usuario final.
+const GOOGLE_CLIENT_ID = '514499064872-sfftpcj7clisas727k8r2prat6p3skuh.apps.googleusercontent.com'
+const GOOGLE_CLIENT_SECRET = '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'
+
 function base64url(buf: Buffer): string {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-function getGoogleCredentials(): { clientId: string; clientSecret: string } {
-  const settings = getAllSettings()
-  if (!settings.googleClientId || !settings.googleClientSecret) {
-    throw new Error(
-      'Configurá el Client ID y Client Secret de Google en Ajustes antes de conectar una cuenta de Gmail.'
-    )
+function callbackPage(opts: { ok: boolean; title: string; detail: string }): string {
+  const icon = opts.ok
+    ? `<svg width="52" height="52" viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r="25" fill="#30d158" fill-opacity="0.15" stroke="#30d158" stroke-width="2"/><path d="M16 27l7 7 13-15" stroke="#30d158" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`
+    : `<svg width="52" height="52" viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r="25" fill="#ff375f" fill-opacity="0.15" stroke="#ff375f" stroke-width="2"/><path d="M18 18l16 16M34 18L18 34" stroke="#ff375f" stroke-width="3" stroke-linecap="round"/></svg>`
+
+  return `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Blaster Email Client</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f5f5f7; color: #1d1d1f;
   }
-  return { clientId: settings.googleClientId, clientSecret: settings.googleClientSecret }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1e1e20; color: #f5f5f7; }
+    .card { background: #262628 !important; border-color: #3a3a3c !important; }
+    .detail { color: #9a9a9e !important; }
+  }
+  .card {
+    background: #ffffff; border: 1px solid #dcdcde; border-radius: 16px;
+    padding: 36px 40px; max-width: 380px; text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+  }
+  .icon { margin-bottom: 16px; }
+  h1 { font-size: 17px; margin: 0 0 8px; }
+  .detail { font-size: 13px; color: #6e6e73; line-height: 1.5; margin: 0; }
+  .brand { margin-top: 22px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #0a84ff; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">${icon}</div>
+    <h1>${opts.title}</h1>
+    <p class="detail">${opts.detail}</p>
+    <div class="brand">Blaster Email Client</div>
+  </div>
+</body>
+</html>`
+}
+
+function getGoogleCredentials(): { clientId: string; clientSecret: string } {
+  return { clientId: GOOGLE_CLIENT_ID, clientSecret: GOOGLE_CLIENT_SECRET }
 }
 
 function waitForAuthCode(server: http.Server): Promise<string> {
@@ -37,11 +83,23 @@ function waitForAuthCode(server: http.Server): Promise<string> {
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
       if (code) {
-        res.end('<html><body><h2>Listo. Ya podés cerrar esta pestaña y volver a Blaster Email Client.</h2></body></html>')
+        res.end(
+          callbackPage({
+            ok: true,
+            title: 'Cuenta conectada',
+            detail: 'Ya podés cerrar esta pestaña y volver a Blaster Email Client.'
+          })
+        )
         clearTimeout(timeout)
         resolve(code)
       } else {
-        res.end('<html><body><h2>Ocurrió un error al conectar con Google.</h2></body></html>')
+        res.end(
+          callbackPage({
+            ok: false,
+            title: 'No se pudo conectar la cuenta',
+            detail: 'Ocurrió un error al conectar con Google. Podés cerrar esta pestaña y volver a intentarlo desde la app.'
+          })
+        )
         clearTimeout(timeout)
         reject(new Error(errorParam || 'No se recibió el código de autorización'))
       }

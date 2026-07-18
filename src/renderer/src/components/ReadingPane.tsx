@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAccountStore } from '../store/useAccountStore'
-import { useMailStore } from '../store/useMailStore'
+import { useMailStore, UNIFIED_INBOX_ID } from '../store/useMailStore'
 import { useMailDataStore } from '../store/useMailDataStore'
 import { useComposeStore } from '../store/useComposeStore'
 import MessageBody from './MessageBody'
@@ -30,22 +30,25 @@ function dedupeExcluding(participants: Participant[], ownEmail: string): Partici
 export default function ReadingPane() {
   const { t, locale } = useT()
   const accounts = useAccountStore((s) => s.accounts)
-  const selectedAccountId = useMailStore((s) => s.selectedAccountId)
   const selectedFolderId = useMailStore((s) => s.selectedFolderId)
   const selectedThreadId = useMailStore((s) => s.selectedThreadId)
+  const isUnified = selectedFolderId === UNIFIED_INBOX_ID
   const threadsByFolder = useMailDataStore((s) => s.threadsByFolder)
+  const unifiedInboxThreads = useMailDataStore((s) => s.unifiedInboxThreads)
   const markThreadRead = useMailDataStore((s) => s.markThreadRead)
   const openCompose = useComposeStore((s) => s.openCompose)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const foundThread = (threadsByFolder[selectedFolderId ?? ''] ?? []).find((t) => t.id === selectedThreadId)
+  const foundThread = (isUnified ? unifiedInboxThreads : threadsByFolder[selectedFolderId ?? ''] ?? []).find(
+    (t) => t.id === selectedThreadId
+  )
 
   useEffect(() => {
-    if (foundThread && selectedAccountId && selectedFolderId && foundThread.hasUnread) {
-      markThreadRead(selectedAccountId, selectedFolderId, foundThread.id)
+    if (foundThread && foundThread.hasUnread) {
+      markThreadRead(foundThread.accountId, foundThread.folderId, foundThread.id)
     }
-  }, [foundThread, selectedAccountId, selectedFolderId, markThreadRead])
+  }, [foundThread, markThreadRead])
 
-  if (!foundThread || !selectedAccountId) {
+  if (!foundThread) {
     return (
       <section className="reading-pane reading-pane-empty">
         <p>{t('readingPane.selectConversation')}</p>
@@ -54,7 +57,7 @@ export default function ReadingPane() {
   }
 
   const thread = foundThread
-  const accountId = selectedAccountId
+  const accountId = thread.accountId
 
   function formatFullDate(iso: string): string {
     return new Date(iso).toLocaleString(locale, {

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
-import { useMailStore } from '../store/useMailStore'
+import { useMailStore, UNIFIED_INBOX_ID } from '../store/useMailStore'
 import { useMailDataStore } from '../store/useMailDataStore'
+import { useAccountStore } from '../store/useAccountStore'
 import { useComposeStore } from '../store/useComposeStore'
 import { useT } from '../i18n/useT'
 
@@ -12,13 +13,18 @@ export default function MessageList() {
   const selectedThreadId = useMailStore((s) => s.selectedThreadId)
   const selectThread = useMailStore((s) => s.selectThread)
 
+  const isUnified = selectedFolderId === UNIFIED_INBOX_ID
   const threadsByFolder = useMailDataStore((s) => s.threadsByFolder)
+  const unifiedInboxThreads = useMailDataStore((s) => s.unifiedInboxThreads)
   const fetchThreads = useMailDataStore((s) => s.fetchThreads)
+  const fetchUnifiedInbox = useMailDataStore((s) => s.fetchUnifiedInbox)
   const openCompose = useComposeStore((s) => s.openCompose)
+  const accounts = useAccountStore((s) => s.accounts)
 
   useEffect(() => {
-    if (selectedAccountId && selectedFolderId) fetchThreads(selectedAccountId, selectedFolderId)
-  }, [selectedAccountId, selectedFolderId, fetchThreads])
+    if (isUnified) fetchUnifiedInbox()
+    else if (selectedAccountId && selectedFolderId) fetchThreads(selectedAccountId, selectedFolderId)
+  }, [isUnified, selectedAccountId, selectedFolderId, fetchThreads, fetchUnifiedInbox])
 
   function formatListDate(iso: string): string {
     const date = new Date(iso)
@@ -29,7 +35,7 @@ export default function MessageList() {
       : date.toLocaleDateString(locale, { day: '2-digit', month: 'short' })
   }
 
-  const threads = threadsByFolder[selectedFolderId ?? ''] ?? []
+  const threads = isUnified ? unifiedInboxThreads : threadsByFolder[selectedFolderId ?? ''] ?? []
 
   return (
     <section className="message-list">
@@ -53,6 +59,12 @@ export default function MessageList() {
             >
               <div className="message-row-top">
                 <span className="message-participants">
+                  {isUnified && (
+                    <span
+                      className="message-account-dot"
+                      style={{ backgroundColor: accounts.find((a) => a.id === thread.accountId)?.color }}
+                    />
+                  )}
                   {thread.participants.map((p) => p.name).join(', ')}
                 </span>
                 <span className="message-date">{formatListDate(thread.lastMessageDate)}</span>

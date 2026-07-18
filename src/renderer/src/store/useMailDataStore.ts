@@ -6,9 +6,11 @@ import { playNewMailSound } from '../lib/sound'
 interface MailDataStore {
   foldersByAccount: Record<string, MailFolder[]>
   threadsByFolder: Record<string, Thread[]>
+  unifiedInboxThreads: Thread[]
   syncingAccountIds: string[]
   fetchFolders: (accountId: string) => Promise<void>
   fetchThreads: (accountId: string, folderId: string) => Promise<void>
+  fetchUnifiedInbox: () => Promise<void>
   syncAccount: (accountId: string) => Promise<void>
   markThreadRead: (accountId: string, folderId: string, threadId: string) => Promise<void>
 }
@@ -20,6 +22,7 @@ function sumUnread(folders: MailFolder[]): number {
 export const useMailDataStore = create<MailDataStore>((set, get) => ({
   foldersByAccount: {},
   threadsByFolder: {},
+  unifiedInboxThreads: [],
   syncingAccountIds: [],
 
   fetchFolders: async (accountId) => {
@@ -30,6 +33,11 @@ export const useMailDataStore = create<MailDataStore>((set, get) => ({
   fetchThreads: async (accountId, folderId) => {
     const threads = await window.api.mail.listThreads(accountId, folderId)
     set({ threadsByFolder: { ...get().threadsByFolder, [folderId]: threads } })
+  },
+
+  fetchUnifiedInbox: async () => {
+    const threads = await window.api.mail.listUnifiedInbox()
+    set({ unifiedInboxThreads: threads })
   },
 
   syncAccount: async (accountId) => {
@@ -49,20 +57,18 @@ export const useMailDataStore = create<MailDataStore>((set, get) => ({
 
   markThreadRead: async (accountId, folderId, threadId) => {
     const threads = get().threadsByFolder[folderId] ?? []
-    const thread = threads.find((t) => t.id === threadId)
+    const thread =
+      threads.find((t) => t.id === threadId) ?? get().unifiedInboxThreads.find((t) => t.id === threadId)
     if (!thread || !thread.hasUnread) return
 
     const unreadInThread = thread.messages.filter((m) => !m.isRead).length
 
+    const markRead = (t: Thread): Thread =>
+      t.id === threadId ? { ...t, hasUnread: false, messages: t.messages.map((m) => ({ ...m, isRead: true })) } : t
+
     set({
-      threadsByFolder: {
-        ...get().threadsByFolder,
-        [folderId]: threads.map((t) =>
-          t.id === threadId
-            ? { ...t, hasUnread: false, messages: t.messages.map((m) => ({ ...m, isRead: true })) }
-            : t
-        )
-      },
+      threadsByFolder: { ...get().threadsByFolder, [folderId]: threads.map(markRead) },
+      unifiedInboxThreads: get().unifiedInboxThreads.map(markRead),
       foldersByAccount: {
         ...get().foldersByAccount,
         [accountId]: (get().foldersByAccount[accountId] ?? []).map((f) =>

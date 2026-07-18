@@ -8,6 +8,7 @@ export const IPC = {
   syncRun: 'sync:run',
   mailListFolders: 'mail:list-folders',
   mailListThreads: 'mail:list-threads',
+  mailListUnifiedInbox: 'mail:list-unified-inbox',
   mailSend: 'mail:send',
   mailMarkThreadRead: 'mail:mark-thread-read',
   mailSaveAttachment: 'mail:save-attachment',

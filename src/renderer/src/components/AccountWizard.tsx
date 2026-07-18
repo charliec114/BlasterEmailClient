@@ -87,14 +87,32 @@ export default function AccountWizard({ editingAccount, onClose }: AccountWizard
   const addAccount = useAccountStore((s) => s.addAccount)
   const updateAccount = useAccountStore((s) => s.updateAccount)
   const testConnection = useAccountStore((s) => s.testConnection)
+  const connectGoogle = useAccountStore((s) => s.connectGoogle)
 
   const isEditing = Boolean(editingAccount)
+
+  const [mode, setMode] = useState<'picker' | 'manual'>(isEditing ? 'manual' : 'picker')
+  const [connectingProvider, setConnectingProvider] = useState<string | null>(null)
+  const [providerError, setProviderError] = useState<string | null>(null)
 
   const [form, setForm] = useState<FormState>(() => (editingAccount ? formFromAccount(editingAccount) : emptyForm()))
   const [testing, setTesting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+
+  async function handleConnectGoogle(): Promise<void> {
+    setConnectingProvider('google')
+    setProviderError(null)
+    try {
+      await connectGoogle()
+      onClose()
+    } catch (error) {
+      setProviderError(errorMessage(error))
+    } finally {
+      setConnectingProvider(null)
+    }
+  }
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]): void {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -177,10 +195,61 @@ export default function AccountWizard({ editingAccount, onClose }: AccountWizard
     }
   }
 
+  if (mode === 'picker') {
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-box provider-picker" onClick={(e) => e.stopPropagation()}>
+          <h2>{t('accountWizard.addTitle')}</h2>
+
+          <div className="provider-list">
+            <button
+              type="button"
+              className="provider-btn"
+              disabled={connectingProvider !== null}
+              onClick={handleConnectGoogle}
+            >
+              <span className="provider-btn-icon">🔴</span>
+              <span className="provider-btn-label">
+                {connectingProvider === 'google' ? t('accountWizard.connectingGoogle') : t('accountWizard.connectGoogle')}
+              </span>
+            </button>
+
+            <button type="button" className="provider-btn" disabled title={t('accountWizard.comingSoon')}>
+              <span className="provider-btn-icon">🔷</span>
+              <span className="provider-btn-label">{t('accountWizard.connectMicrosoft')}</span>
+            </button>
+          </div>
+
+          {providerError && <div className="test-fail form-error">{providerError}</div>}
+
+          <div className="provider-divider">{t('accountWizard.orManual')}</div>
+
+          <button type="button" className="provider-btn" onClick={() => setMode('manual')}>
+            <span className="provider-btn-icon">✉️</span>
+            <span className="provider-btn-label">{t('accountWizard.manualImapPop3')}</span>
+          </button>
+
+          <div className="modal-actions">
+            <button type="button" className="reply-btn" onClick={onClose}>
+              {t('common.cancel')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <h2>{isEditing ? t('accountWizard.editTitle') : t('accountWizard.addTitle')}</h2>
+        <div className="modal-header-row">
+          <h2>{isEditing ? t('accountWizard.editTitle') : t('accountWizard.addTitle')}</h2>
+          {!isEditing && (
+            <button type="button" className="modal-close-btn" title={t('accountWizard.back')} onClick={() => setMode('picker')}>
+              ← {t('accountWizard.back')}
+            </button>
+          )}
+        </div>
 
         <div className="form-grid">
           <label>

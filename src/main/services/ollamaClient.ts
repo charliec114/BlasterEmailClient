@@ -48,18 +48,25 @@ function stripMetaCommentary(text: string): string {
   return text
     .trim()
     .replace(/\n*\(?\s*(nota|note|aclaraci[oó]n)\s*:.*$/is, '')
+    .replace(/^(aquí|acá)\s+(te|les)?\s*(presento|dejo|comparto|va|tenés|tienes)\s+.*?resumen[^:\n]*:\s*/i, '')
+    .replace(/^resumen\s*:\s*/i, '')
     .trim()
 }
 
 export async function summarizeThread(settings: OllamaSettings, threadText: string): Promise<string> {
   const prompt = `${styleBlock(settings.stylePrompt)}Resumí la siguiente conversación de email en español, en 2 a 4 oraciones, destacando decisiones tomadas y pendientes. No hace falta repetir quién escribió cada mensaje si no es relevante.
 
+Reglas estrictas:
+- Devolvé ÚNICAMENTE el resumen en sí, sin ninguna frase introductoria como "Aquí tienes un resumen" o similar.
+- No agregues comentarios, notas ni aclaraciones sobre las instrucciones que seguiste.
+
 Conversación:
 ${threadText}
 
 Resumen:`
 
-  return generate(settings.baseUrl, settings.model, prompt)
+  const result = await generate(settings.baseUrl, settings.model, prompt)
+  return stripMetaCommentary(result)
 }
 
 export async function assistCompose(
