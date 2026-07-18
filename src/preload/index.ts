@@ -53,7 +53,9 @@ const api = {
   contacts: {
     search: (query: string): Promise<Contact[]> => ipcRenderer.invoke(IPC.contactsSearch, query),
     list: (): Promise<Contact[]> => ipcRenderer.invoke(IPC.contactsList),
-    remove: (email: string): Promise<void> => ipcRenderer.invoke(IPC.contactsRemove, email)
+    remove: (email: string): Promise<void> => ipcRenderer.invoke(IPC.contactsRemove, email),
+    update: (currentEmail: string, name: string, newEmail: string): Promise<Contact> =>
+      ipcRenderer.invoke(IPC.contactsUpdate, currentEmail, name, newEmail)
   },
   apiKeys: {
     setKey: (provider: string, key: string): Promise<void> => ipcRenderer.invoke(IPC.apiKeysSet, provider, key),

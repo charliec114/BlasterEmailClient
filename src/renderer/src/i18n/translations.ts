@@ -3,6 +3,7 @@ const es = {
   'common.close': 'Cerrar',
   'common.done': 'Listo',
   'common.loading': 'Cargando...',
+  'common.save': 'Guardar',
 
   'sidebar.accountsHeader': 'Cuentas',
   'sidebar.syncing': 'Sincronizando...',
@@ -88,6 +89,7 @@ const es = {
   'contactsModal.title': 'Contactos',
   'contactsModal.empty': 'Todavía no hay contactos guardados — van apareciendo a medida que recibís o enviás correo.',
   'contactsModal.newMessage': '✏️ Nuevo mensaje',
+  'contactsModal.editContact': 'Editar contacto',
   'contactsModal.deleteContact': 'Eliminar contacto',
 
   'settingsModal.title': 'Ajustes',
@@ -131,6 +133,7 @@ const en: Record<TranslationKey, string> = {
   'common.close': 'Close',
   'common.done': 'Done',
   'common.loading': 'Loading...',
+  'common.save': 'Save',
 
   'sidebar.accountsHeader': 'Accounts',
   'sidebar.syncing': 'Syncing...',
@@ -216,6 +219,7 @@ const en: Record<TranslationKey, string> = {
   'contactsModal.title': 'Contacts',
   'contactsModal.empty': "No contacts saved yet — they'll show up as you receive or send mail.",
   'contactsModal.newMessage': '✏️ New message',
+  'contactsModal.editContact': 'Edit contact',
   'contactsModal.deleteContact': 'Delete contact',
 
   'settingsModal.title': 'Settings',

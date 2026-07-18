@@ -44,6 +44,7 @@ interface BlasterApi {
     search: (query: string) => Promise<Contact[]>
     list: () => Promise<Contact[]>
     remove: (email: string) => Promise<void>
+    update: (currentEmail: string, name: string, newEmail: string) => Promise<Contact>
   }
   apiKeys: {
     setKey: (provider: string, key: string) => Promise<void>

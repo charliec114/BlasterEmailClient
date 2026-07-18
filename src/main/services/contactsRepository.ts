@@ -88,3 +88,22 @@ export function listContacts(): Contact[] {
 export function deleteContact(email: string): void {
   getDb().prepare('DELETE FROM contacts WHERE email = ?').run(email.trim().toLowerCase())
 }
+
+export function updateContact(currentEmail: string, name: string, newEmail: string): Contact {
+  const db = getDb()
+  const normalizedCurrent = currentEmail.trim().toLowerCase()
+  const normalizedNew = newEmail.trim().toLowerCase()
+
+  const row = db.prepare('SELECT * FROM contacts WHERE email = ?').get(normalizedCurrent) as ContactRow | undefined
+  if (!row) throw new Error('Contacto no encontrado')
+
+  if (normalizedNew !== normalizedCurrent) {
+    const clash = db.prepare('SELECT id FROM contacts WHERE email = ?').get(normalizedNew)
+    if (clash) throw new Error('Ya existe un contacto con ese email')
+  }
+
+  const finalName = name.trim() || null
+  db.prepare('UPDATE contacts SET email = ?, name = ? WHERE id = ?').run(normalizedNew, finalName, row.id)
+
+  return rowToContact({ ...row, email: normalizedNew, name: finalName })
+}

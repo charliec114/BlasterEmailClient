@@ -24,5 +24,6 @@ export const IPC = {
   contactsSearch: 'contacts:search',
   contactsList: 'contacts:list',
   contactsRemove: 'contacts:remove',
+  contactsUpdate: 'contacts:update',
   dialogPickFiles: 'dialog:pick-files'
 } as const

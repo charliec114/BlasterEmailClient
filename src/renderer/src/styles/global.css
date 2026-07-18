@@ -1002,6 +1002,29 @@ html::-webkit-scrollbar,
   flex-shrink: 0;
 }
 
+.contact-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.contact-edit-form input {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-list);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.contact-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .contact-actions .edit-account-btn {
   opacity: 0.6;
 }
