@@ -1308,3 +1308,16 @@ legend {
   justify-content: flex-end;
   gap: 8px;
 }
+
+.modal-actions-spacer {
+  flex: 1;
+}
+
+.danger-btn {
+  border-color: rgba(255, 55, 95, 0.4);
+  color: #ff375f;
+}
+
+.danger-btn:hover:not(:disabled) {
+  background: rgba(255, 55, 95, 0.1);
+}

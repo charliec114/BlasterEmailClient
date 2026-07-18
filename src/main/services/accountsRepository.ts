@@ -62,6 +62,16 @@ function getAccountRow(id: string): AccountRow {
   return row
 }
 
+function assertEmailNotInUse(email: string, excludeId?: string): void {
+  const normalized = email.trim().toLowerCase()
+  const row = getDb()
+    .prepare('SELECT id FROM accounts WHERE lower(email) = ?')
+    .get(normalized) as { id: string } | undefined
+  if (row && row.id !== excludeId) {
+    throw new Error(`Ya tenés una cuenta agregada con el email ${email}.`)
+  }
+}
+
 export function listAccounts(): Account[] {
   const rows = getDb().prepare('SELECT * FROM accounts ORDER BY created_at ASC').all() as AccountRow[]
   return rows.map(rowToAccount)
@@ -96,6 +106,8 @@ export function resolveAccountPasswords(id: string, input: AccountInput): Accoun
 }
 
 export function addAccount(input: AccountInput): Account {
+  assertEmailNotInUse(input.email)
+
   const id = randomUUID()
   const createdAt = new Date().toISOString()
 
@@ -138,6 +150,7 @@ export function addAccount(input: AccountInput): Account {
 }
 
 export function updateAccount(id: string, input: AccountInput): Account {
+  assertEmailNotInUse(input.email, id)
   const existing = getAccountRow(id)
 
   getDb()
@@ -183,10 +196,32 @@ export function updateAccount(id: string, input: AccountInput): Account {
 }
 
 export function removeAccount(id: string): void {
-  getDb().prepare('DELETE FROM accounts WHERE id = ?').run(id)
+  const db = getDb()
+
+  const deleteAll = db.transaction((accountId: string) => {
+    const threadKeys = db
+      .prepare('SELECT DISTINCT thread_key FROM messages WHERE account_id = ?')
+      .all(accountId) as { thread_key: string }[]
+    const messageIds = db.prepare('SELECT id FROM messages WHERE account_id = ?').all(accountId) as { id: string }[]
+
+    if (messageIds.length > 0) {
+      const placeholders = messageIds.map(() => '?').join(',')
+      db.prepare(`DELETE FROM attachments WHERE message_id IN (${placeholders})`).run(...messageIds.map((m) => m.id))
+    }
+    for (const { thread_key } of threadKeys) {
+      db.prepare('DELETE FROM thread_summaries WHERE thread_key = ?').run(thread_key)
+    }
+    db.prepare('DELETE FROM messages WHERE account_id = ?').run(accountId)
+    db.prepare('DELETE FROM folders WHERE account_id = ?').run(accountId)
+    db.prepare('DELETE FROM accounts WHERE id = ?').run(accountId)
+  })
+
+  deleteAll(id)
 }
 
 export function addGoogleAccount(email: string, name: string, refreshToken: string): Account {
+  assertEmailNotInUse(email)
+
   const id = randomUUID()
   const createdAt = new Date().toISOString()
   const color = ACCOUNT_COLORS[Math.floor(Math.random() * ACCOUNT_COLORS.length)]

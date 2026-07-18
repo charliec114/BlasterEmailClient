@@ -86,6 +86,7 @@ export default function AccountWizard({ editingAccount, onClose }: AccountWizard
   const { t } = useT()
   const addAccount = useAccountStore((s) => s.addAccount)
   const updateAccount = useAccountStore((s) => s.updateAccount)
+  const removeAccount = useAccountStore((s) => s.removeAccount)
   const testConnection = useAccountStore((s) => s.testConnection)
   const connectGoogle = useAccountStore((s) => s.connectGoogle)
 
@@ -100,6 +101,7 @@ export default function AccountWizard({ editingAccount, onClose }: AccountWizard
   const [saving, setSaving] = useState(false)
   const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   async function handleConnectGoogle(): Promise<void> {
     setConnectingProvider('google')
@@ -174,6 +176,23 @@ export default function AccountWizard({ editingAccount, onClose }: AccountWizard
       setFormError(errorMessage(error))
     } finally {
       setTesting(false)
+    }
+  }
+
+  async function handleDelete(): Promise<void> {
+    if (!editingAccount) return
+    const confirmed = window.confirm(t('accountWizard.deleteConfirm', { email: editingAccount.email }))
+    if (!confirmed) return
+
+    setDeleting(true)
+    setFormError(null)
+    try {
+      await removeAccount(editingAccount.id)
+      onClose()
+    } catch (error) {
+      setFormError(errorMessage(error))
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -409,6 +428,12 @@ export default function AccountWizard({ editingAccount, onClose }: AccountWizard
         {formError && <div className="test-fail form-error">{formError}</div>}
 
         <div className="modal-actions">
+          {isEditing && (
+            <button type="button" className="reply-btn danger-btn" disabled={deleting} onClick={handleDelete}>
+              {deleting ? t('accountWizard.deletingStatus') : t('accountWizard.deleteAccount')}
+            </button>
+          )}
+          <div className="modal-actions-spacer" />
           <button type="button" className="reply-btn" onClick={onClose}>
             {t('common.cancel')}
           </button>
