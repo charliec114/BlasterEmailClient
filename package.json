@@ -1,11 +1,18 @@
 {
   "name": "blaster-email-client",
   "version": "0.1.0",
-  "description": "Cliente de email multi-cuenta con agrupación de conversaciones y asistencia LLM vía Ollama",
+  "description": "Cliente de email multi-cuenta con agrupación de conversaciones y asistencia de IA (local o en la nube)",
   "main": "./out/main/index.js",
   "private": true,
-  "author": "Blaster",
-  "license": "UNLICENSED",
+  "author": {
+    "name": "Blaster",
+    "email": "charlie@blaster.com.ar"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/charliec114/BlasterEmailClient.git"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
@@ -14,7 +21,46 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "start": "electron-vite preview",
     "package": "npm run build && electron-builder --dir",
+    "release": "npm run build && electron-builder --publish always",
     "postinstall": "electron-rebuild"
+  },
+  "build": {
+    "appId": "ar.com.blaster.emailclient",
+    "productName": "Blaster Email Client",
+    "directories": {
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "linux": {
+      "target": [
+        "deb"
+      ],
+      "category": "Network",
+      "icon": "build/icon.png"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.png"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity"
+    },
+    "publish": {
+      "provider": "github"
+    }
   },
   "devDependencies": {
     "@electron-toolkit/tsconfig": "^2.0.0",
@@ -26,6 +72,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
+    "dotenv": "^17.4.2",
     "electron": "^43.1.1",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",

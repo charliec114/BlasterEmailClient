@@ -11,10 +11,12 @@ const AUTH_TIMEOUT_MS = 3 * 60 * 1000
 
 // Client ID/Secret del proyecto "blaster-email-client" en Google Cloud Console, tipo
 // "Desktop app" — Google no considera confidencial el secreto de este tipo de cliente
-// (usa PKCE como capa de seguridad real), por eso puede vivir hardcodeado en el código
-// en vez de pedírselo a cada usuario final.
-const GOOGLE_CLIENT_ID = '514499064872-sfftpcj7clisas727k8r2prat6p3skuh.apps.googleusercontent.com'
-const GOOGLE_CLIENT_SECRET = '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'
+// (usa PKCE como capa de seguridad real), así que no hace falta pedírselo a cada usuario
+// final. Pero como el repo es público, el VALOR no vive en este archivo: se inyecta en
+// tiempo de build desde variables de entorno (.env local o secrets de CI), ver
+// electron.vite.config.ts y docs/google-oauth-setup.md.
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? ''
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? ''
 
 function base64url(buf: Buffer): string {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
@@ -67,6 +69,11 @@ function callbackPage(opts: { ok: boolean; title: string; detail: string }): str
 }
 
 function getGoogleCredentials(): { clientId: string; clientSecret: string } {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    throw new Error(
+      'Esta build no tiene configuradas las credenciales de Google (GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET). Ver docs/google-oauth-setup.md.'
+    )
+  }
   return { clientId: GOOGLE_CLIENT_ID, clientSecret: GOOGLE_CLIENT_SECRET }
 }
 

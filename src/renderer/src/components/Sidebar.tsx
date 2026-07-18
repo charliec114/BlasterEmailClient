@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type DragEvent } from 'react'
+import { useCallback, useEffect, useState, type DragEvent, type MouseEvent } from 'react'
 import { useAccountStore } from '../store/useAccountStore'
 import { useMailStore, UNIFIED_INBOX_ID } from '../store/useMailStore'
 import { useMailDataStore } from '../store/useMailDataStore'
@@ -42,6 +42,7 @@ export default function Sidebar() {
   const fetchThreads = useMailDataStore((s) => s.fetchThreads)
   const fetchUnifiedInbox = useMailDataStore((s) => s.fetchUnifiedInbox)
   const syncAccountData = useMailDataStore((s) => s.syncAccount)
+  const markFolderRead = useMailDataStore((s) => s.markFolderRead)
 
   const selectedFolderId = useMailStore((s) => s.selectedFolderId)
   const selectFolder = useMailStore((s) => s.selectFolder)
@@ -57,6 +58,9 @@ export default function Sidebar() {
   const [showContacts, setShowContacts] = useState(false)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dropIndicator, setDropIndicator] = useState<{ id: string; after: boolean } | null>(null)
+  const [folderContextMenu, setFolderContextMenu] = useState<{ accountId: string; folderId: string; x: number; y: number } | null>(
+    null
+  )
   const isSyncing = syncingAccountIds.length > 0
 
   const order = resolveOrder(
@@ -122,6 +126,18 @@ export default function Sidebar() {
   function handleDragEnd(): void {
     setDraggedId(null)
     setDropIndicator(null)
+  }
+
+  function openFolderContextMenu(e: MouseEvent, accountId: string, folderId: string): void {
+    e.preventDefault()
+    setFolderContextMenu({ accountId, folderId, x: e.clientX, y: e.clientY })
+  }
+
+  async function handleMarkFolderRead(): Promise<void> {
+    if (!folderContextMenu) return
+    const { accountId, folderId } = folderContextMenu
+    setFolderContextMenu(null)
+    await markFolderRead(accountId, folderId)
   }
 
   const unifiedUnreadCount = accounts.reduce((sum, account) => {
@@ -223,6 +239,7 @@ export default function Sidebar() {
                       <button
                         className={`sidebar-folder-btn ${folder.id === selectedFolderId ? 'active' : ''}`}
                         onClick={() => selectFolder(account.id, folder.id, folder.name)}
+                        onContextMenu={(e) => openFolderContextMenu(e, account.id, folder.id)}
                       >
                         <span className="folder-icon">{FOLDER_ICONS[folder.kind]}</span>
                         <span className="folder-name">{folder.name}</span>
@@ -258,6 +275,27 @@ export default function Sidebar() {
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showContacts && <ContactsModal onClose={() => setShowContacts(false)} />}
+
+      {folderContextMenu && (
+        <div
+          className="context-menu-overlay"
+          onClick={() => setFolderContextMenu(null)}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setFolderContextMenu(null)
+          }}
+        >
+          <div
+            className="context-menu"
+            style={{ top: folderContextMenu.y, left: folderContextMenu.x }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button type="button" onClick={handleMarkFolderRead}>
+              {t('sidebar.markFolderRead')}
+            </button>
+          </div>
+        </div>
+      )}
     </aside>
   )
 }

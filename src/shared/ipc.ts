@@ -11,6 +11,7 @@ export const IPC = {
   mailListUnifiedInbox: 'mail:list-unified-inbox',
   mailSend: 'mail:send',
   mailMarkThreadRead: 'mail:mark-thread-read',
+  mailMarkFolderRead: 'mail:mark-folder-read',
   mailSaveAttachment: 'mail:save-attachment',
   settingsGetAll: 'settings:get-all',
   settingsSet: 'settings:set',

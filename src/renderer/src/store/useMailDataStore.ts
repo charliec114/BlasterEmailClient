@@ -13,6 +13,7 @@ interface MailDataStore {
   fetchUnifiedInbox: () => Promise<void>
   syncAccount: (accountId: string) => Promise<void>
   markThreadRead: (accountId: string, folderId: string, threadId: string) => Promise<void>
+  markFolderRead: (accountId: string, folderId: string) => Promise<void>
 }
 
 function sumUnread(folders: MailFolder[]): number {
@@ -78,5 +79,21 @@ export const useMailDataStore = create<MailDataStore>((set, get) => ({
     })
 
     await window.api.mail.markThreadRead(accountId, folderId, threadId)
+  },
+
+  markFolderRead: async (accountId, folderId) => {
+    const markAllRead = (t: Thread): Thread =>
+      t.folderId === folderId ? { ...t, hasUnread: false, messages: t.messages.map((m) => ({ ...m, isRead: true })) } : t
+
+    set({
+      threadsByFolder: { ...get().threadsByFolder, [folderId]: (get().threadsByFolder[folderId] ?? []).map(markAllRead) },
+      unifiedInboxThreads: get().unifiedInboxThreads.map(markAllRead),
+      foldersByAccount: {
+        ...get().foldersByAccount,
+        [accountId]: (get().foldersByAccount[accountId] ?? []).map((f) => (f.id === folderId ? { ...f, unreadCount: 0 } : f))
+      }
+    })
+
+    await window.api.mail.markFolderRead(accountId, folderId)
   }
 }))

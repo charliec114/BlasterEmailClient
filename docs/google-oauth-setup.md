@@ -1,9 +1,8 @@
 # Integración con Gmail (OAuth2)
 
 **Estado: activa.** El proyecto de Google Cloud (`blaster-email-client`, cuenta
-`charliec114@gmail.com`) ya está creado, el Client ID/Secret de tipo "Desktop app" ya
-están hardcodeados en `src/main/services/googleOAuth.ts`, y el botón "Conectar cuenta
-de Google" ya está disponible dentro de "Agregar cuenta".
+`charliec114@gmail.com`) ya está creado, y el botón "Conectar cuenta de Google" ya
+está disponible dentro de "Agregar cuenta".
 
 ⚠️ La app sigue en modo **Testing** en la pantalla de consentimiento de Google — el
 refresh token puede expirar cada 7 días y va a pedir volver a loguearse. Solo las
@@ -11,6 +10,24 @@ cuentas agregadas como "Test user" en el proyecto pueden conectarse (hoy:
 `charliec114@gmail.com`). Para agregar más cuentas de prueba, o para sacar la app de
 Testing (requiere el proceso de verificación de Google), hay que volver a
 console.cloud.google.com → OAuth consent screen.
+
+## Manejo del Client ID/Secret (repo público)
+
+El repo es público, así que el Client ID/Secret **no vive como texto en ningún
+archivo versionado**. Se inyectan como variables de entorno en el momento del build
+(`electron.vite.config.ts` los reemplaza como literales en el bundle final del
+proceso main vía `define`):
+
+- **Desarrollo local**: copiá `.env.example` a `.env` (que está en `.gitignore`) y
+  completá `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` ahí. Sin ese archivo, la app
+  funciona igual con IMAP/POP3 manual — solo el login con Google queda deshabilitado.
+- **Releases (CI)**: `.github/workflows/release.yml` los toma de GitHub Actions
+  Secrets (`Settings → Secrets and variables → Actions` del repo), nunca del código.
+
+Si el secret se filtra alguna vez (nos pasó una vez con GitGuardian), rotarlo en
+Cloud Console y actualizar el `.env` local + los secrets de GitHub Actions alcanza —
+no hace falta reescribir el historial de git, porque una vez expuesto lo único que
+realmente arregla algo es invalidar la credencial vieja.
 
 Lo que sigue debajo queda como referencia de cómo se armó, por si hay que repetirlo
 para otro proyecto o cuenta de Google.
@@ -43,18 +60,16 @@ un uso personal. Por ahora lo aceptamos como limitación conocida.
 
 ## 4. Pasarme esas credenciales
 
-Una vez que tengas Client ID y Client Secret, me los pasás y yo los hardcodeo
-directo en el código (`src/main/services/googleOAuth.ts`), **no** van a ir en un
-campo de Ajustes — eso es config interna de la app, no algo que el usuario final
-tenga que resolver. Google mismo indica que el Client Secret de un cliente tipo
-"Desktop app" no se considera confidencial, así que no hay problema de seguridad
-en tenerlo fijo en el código.
+Una vez que tengas Client ID y Client Secret, me los pasás y los cargo en `.env`
+(desarrollo local) y en los Secrets de GitHub Actions (releases) — **no** van a ir
+en un campo de Ajustes, eso es config interna de la app, no algo que el usuario
+final tenga que resolver. Ver la sección de arriba para el detalle de dónde vive
+cada uno.
 
 ## 5. Lo que hago yo después
 
-- Reemplazo la lectura de `googleClientId`/`googleClientSecret` desde Ajustes por
-  las constantes hardcodeadas.
-- Vuelvo a mostrar el botón "Conectar Gmail" en el Sidebar (hoy está oculto).
+- Cargo las credenciales en `.env` local y en los Secrets de GitHub Actions.
+- Confirmo que el botón "Conectar cuenta de Google" esté disponible en el Sidebar.
 - Probamos el flujo de punta a punta: click → navegador → login → cuenta creada.
 
 ## Referencia rápida del código ya construido

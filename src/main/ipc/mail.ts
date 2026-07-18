@@ -8,7 +8,7 @@ import {
   listThreadsForFolder,
   listUnifiedInboxThreads
 } from '../services/mailRepository'
-import { markThreadRead, syncAccount } from '../services/syncService'
+import { markFolderRead, markThreadRead, syncAccount } from '../services/syncService'
 import { sendMail } from '../services/mailSend'
 
 export function registerMailIpc(): void {
@@ -26,6 +26,10 @@ export function registerMailIpc(): void {
 
   ipcMain.handle(IPC.mailMarkThreadRead, (_event, accountId: string, folderId: string, threadId: string) =>
     markThreadRead(accountId, folderId, threadId)
+  )
+
+  ipcMain.handle(IPC.mailMarkFolderRead, (_event, accountId: string, folderId: string) =>
+    markFolderRead(accountId, folderId)
   )
 
   ipcMain.handle(IPC.mailSaveAttachment, async (event, attachmentId: string): Promise<string | null> => {

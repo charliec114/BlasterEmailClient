@@ -725,6 +725,39 @@ html::-webkit-scrollbar,
   }
 }
 
+/* Context menu (click derecho en carpetas) */
+
+.context-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+}
+
+.context-menu {
+  position: fixed;
+  background: var(--bg-list);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  padding: 4px;
+  min-width: 180px;
+}
+
+.context-menu button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  padding: 7px 10px;
+  border-radius: 6px;
+}
+
+.context-menu button:hover {
+  background: var(--row-hover);
+}
+
 /* Account wizard modal */
 
 .modal-overlay {

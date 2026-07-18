@@ -127,6 +127,17 @@ export function markThreadReadLocal(folderId: string, threadKey: string): string
   return rows.map((row) => row.remote_uid)
 }
 
+export function markFolderReadLocal(folderId: string): string[] {
+  const db = getDb()
+  const rows = db
+    .prepare('SELECT remote_uid FROM messages WHERE folder_id = ? AND is_read = 0')
+    .all(folderId) as { remote_uid: string }[]
+
+  db.prepare('UPDATE messages SET is_read = 1 WHERE folder_id = ?').run(folderId)
+
+  return rows.map((row) => row.remote_uid)
+}
+
 export function listRemoteUidsForFolder(folderId: string): Set<string> {
   const rows = getDb().prepare('SELECT remote_uid FROM messages WHERE folder_id = ?').all(folderId) as {
     remote_uid: string

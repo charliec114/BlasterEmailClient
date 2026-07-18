@@ -32,6 +32,8 @@ const api = {
     send: (input: SendMailInput): Promise<void> => ipcRenderer.invoke(IPC.mailSend, input),
     markThreadRead: (accountId: string, folderId: string, threadId: string): Promise<void> =>
       ipcRenderer.invoke(IPC.mailMarkThreadRead, accountId, folderId, threadId),
+    markFolderRead: (accountId: string, folderId: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.mailMarkFolderRead, accountId, folderId),
     saveAttachment: (attachmentId: string): Promise<string | null> =>
       ipcRenderer.invoke(IPC.mailSaveAttachment, attachmentId)
   },
