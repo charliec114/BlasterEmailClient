@@ -163,10 +163,37 @@ export default function ReadingPane() {
                   {message.from.name}
                   <span className="expand-caret">{expandedIds.has(message.id) ? '▾' : '▸'}</span>
                 </div>
+                {!expandedIds.has(message.id) && <div className="message-card-date">{formatFullDate(message.date)}</div>}
                 {expandedIds.has(message.id) && (
-                  <div className="message-card-email">{message.from.email}</div>
+                  <div className="message-card-details" onClick={(e) => e.stopPropagation()}>
+                    <div className="message-detail-row">
+                      <span className="message-detail-label">{t('readingPane.detailFrom')}</span>
+                      <span>
+                        {message.from.name} &lt;{message.from.email}&gt;
+                      </span>
+                    </div>
+                    {message.to.length > 0 && (
+                      <div className="message-detail-row">
+                        <span className="message-detail-label">{t('readingPane.detailTo')}</span>
+                        <span>{message.to.map((p) => `${p.name} <${p.email}>`).join(', ')}</span>
+                      </div>
+                    )}
+                    {message.cc.length > 0 && (
+                      <div className="message-detail-row">
+                        <span className="message-detail-label">{t('readingPane.detailCc')}</span>
+                        <span>{message.cc.map((p) => `${p.name} <${p.email}>`).join(', ')}</span>
+                      </div>
+                    )}
+                    <div className="message-detail-row">
+                      <span className="message-detail-label">{t('readingPane.detailDate')}</span>
+                      <span>{formatFullDate(message.date)}</span>
+                    </div>
+                    <div className="message-detail-row">
+                      <span className="message-detail-label">{t('readingPane.detailSubject')}</span>
+                      <span>{message.subject}</span>
+                    </div>
+                  </div>
                 )}
-                <div className="message-card-date">{formatFullDate(message.date)}</div>
               </div>
             </div>
             <MessageBody message={message} />

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { UpdateCheckResult } from '@shared/types'
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 export type Language = 'es' | 'en'
@@ -12,7 +13,12 @@ interface SettingsStore {
   theme: ThemePreference
   language: Language
   soundEnabled: boolean
+  notificationsEnabled: boolean
   loaded: boolean
+  appVersion: string
+  updateInfo: UpdateCheckResult | null
+  checkingUpdate: boolean
+  updateError: string | null
   aiProvider: AiProvider
   aiStylePrompt: string
   ollamaBaseUrl: string
@@ -30,6 +36,9 @@ interface SettingsStore {
   setTheme: (theme: ThemePreference) => Promise<void>
   setLanguage: (language: Language) => Promise<void>
   setSoundEnabled: (enabled: boolean) => Promise<void>
+  setNotificationsEnabled: (enabled: boolean) => Promise<void>
+  loadAppVersion: () => Promise<void>
+  checkForUpdate: () => Promise<void>
   setAiProvider: (provider: AiProvider) => Promise<void>
   setAiStylePrompt: (stylePrompt: string) => Promise<void>
   setOllamaBaseUrl: (baseUrl: string) => Promise<void>
@@ -66,7 +75,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   theme: 'system',
   language: 'es',
   soundEnabled: true,
+  notificationsEnabled: true,
   loaded: false,
+  appVersion: '',
+  updateInfo: null,
+  checkingUpdate: false,
+  updateError: null,
   aiProvider: 'ollama',
   aiStylePrompt: '',
   ollamaBaseUrl: 'http://localhost:11434',
@@ -85,6 +99,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const all = await window.api.settings.getAll()
     const theme = (all.theme as ThemePreference | undefined) ?? 'system'
     const soundEnabled = all.soundEnabled !== 'false'
+    const notificationsEnabled = all.notificationsEnabled !== 'false'
     applyTheme(theme)
     const language = (all.language as Language | undefined) ?? 'es'
     const aiProvider = (all.aiProvider as AiProvider | undefined) ?? 'ollama'
@@ -92,6 +107,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       theme,
       language,
       soundEnabled,
+      notificationsEnabled,
       loaded: true,
       aiProvider,
       aiStylePrompt: all.aiStylePrompt || '',
@@ -105,6 +121,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     })
     get().refreshOllamaModels()
     get().refreshApiKeyStatus()
+    get().loadAppVersion()
+    get().checkForUpdate()
   },
 
   setTheme: async (theme) => {
@@ -121,6 +139,26 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   setSoundEnabled: async (enabled) => {
     set({ soundEnabled: enabled })
     await window.api.settings.set('soundEnabled', String(enabled))
+  },
+
+  setNotificationsEnabled: async (enabled) => {
+    set({ notificationsEnabled: enabled })
+    await window.api.settings.set('notificationsEnabled', String(enabled))
+  },
+
+  loadAppVersion: async () => {
+    const version = await window.api.app.getVersion()
+    set({ appVersion: version })
+  },
+
+  checkForUpdate: async () => {
+    set({ checkingUpdate: true, updateError: null })
+    try {
+      const info = await window.api.updates.checkLatest()
+      set({ updateInfo: info, checkingUpdate: false })
+    } catch (error) {
+      set({ updateError: errorMessage(error), checkingUpdate: false })
+    }
   },
 
   setAiProvider: async (provider) => {

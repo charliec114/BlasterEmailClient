@@ -67,6 +67,7 @@ export interface Message {
   from: Participant
   to: Participant[]
   cc: Participant[]
+  subject: string
   date: string
   bodyText: string
   bodyHtml?: string
@@ -106,6 +107,13 @@ export interface AttachmentRef {
   path: string
   name: string
   size: number
+}
+
+export interface UpdateCheckResult {
+  hasUpdate: boolean
+  currentVersion: string
+  latestVersion: string
+  url: string
 }
 
 export interface SendMailInput {

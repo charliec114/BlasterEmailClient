@@ -8,10 +8,18 @@ import type {
   MailFolder,
   SendMailInput,
   StoredSummary,
-  Thread
+  Thread,
+  UpdateCheckResult
 } from '../shared/types'
 
 interface BlasterApi {
+  app: {
+    getVersion: () => Promise<string>
+    focusWindow: () => Promise<void>
+  }
+  updates: {
+    checkLatest: () => Promise<UpdateCheckResult>
+  }
   accounts: {
     list: () => Promise<Account[]>
     add: (input: AccountInput) => Promise<Account>

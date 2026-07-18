@@ -512,10 +512,29 @@ html::-webkit-scrollbar,
   margin-left: 6px;
 }
 
-.message-card-email {
-  font-size: 11px;
+.message-card-details {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--row-hover);
+  border-radius: 8px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  user-select: text;
+  cursor: default;
+}
+
+.message-detail-row {
+  display: flex;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.message-detail-label {
   color: var(--text-secondary);
-  margin-top: 1px;
+  flex-shrink: 0;
+  min-width: 55px;
 }
 
 .message-card-avatar {
@@ -1300,6 +1319,82 @@ legend {
 .form-error {
   margin-top: 8px;
   font-size: 12px;
+}
+
+.about-panel {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.about-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.about-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.about-name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.about-name-accent {
+  background: linear-gradient(90deg, #3b82f6, #06b6d4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.about-version {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 1px;
+}
+
+.about-tagline {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 6px 0;
+  line-height: 1.4;
+}
+
+.about-links {
+  display: flex;
+  gap: 12px;
+}
+
+.about-link {
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.about-link:hover {
+  text-decoration: underline;
+}
+
+.about-update-row {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.update-available-link {
+  color: #ff9f0a;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.update-available-link:hover {
+  text-decoration: underline;
 }
 
 .modal-actions {

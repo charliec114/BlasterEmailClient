@@ -10,10 +10,18 @@ import type {
   MailFolder,
   SendMailInput,
   StoredSummary,
-  Thread
+  Thread,
+  UpdateCheckResult
 } from '../shared/types'
 
 const api = {
+  app: {
+    getVersion: (): Promise<string> => ipcRenderer.invoke(IPC.appGetVersion),
+    focusWindow: (): Promise<void> => ipcRenderer.invoke(IPC.appFocusWindow)
+  },
+  updates: {
+    checkLatest: (): Promise<UpdateCheckResult> => ipcRenderer.invoke(IPC.updatesCheckLatest)
+  },
   accounts: {
     list: (): Promise<Account[]> => ipcRenderer.invoke(IPC.accountsList),
     add: (input: AccountInput): Promise<Account> => ipcRenderer.invoke(IPC.accountsAdd, input),

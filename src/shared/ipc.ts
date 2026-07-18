@@ -1,4 +1,7 @@
 export const IPC = {
+  appGetVersion: 'app:get-version',
+  appFocusWindow: 'app:focus-window',
+  updatesCheckLatest: 'updates:check-latest',
   accountsList: 'accounts:list',
   accountsAdd: 'accounts:add',
   accountsUpdate: 'accounts:update',

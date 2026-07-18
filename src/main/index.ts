@@ -8,6 +8,8 @@ import { registerOllamaIpc } from './ipc/ollama'
 import { registerContactsIpc } from './ipc/contacts'
 import { registerDialogIpc } from './ipc/dialog'
 import { registerApiKeysIpc } from './ipc/apiKeys'
+import { registerAppIpc } from './ipc/app'
+import { setMainWindow } from './windowManager'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -24,6 +26,8 @@ function createWindow(): void {
       sandbox: false
     }
   })
+
+  setMainWindow(mainWindow)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -64,6 +68,7 @@ app.whenReady().then(() => {
   registerContactsIpc()
   registerDialogIpc()
   registerApiKeysIpc()
+  registerAppIpc()
 
   createWindow()
 

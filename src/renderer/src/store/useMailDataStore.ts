@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import type { MailFolder, Thread } from '@shared/types'
 import { useSettingsStore } from './useSettingsStore'
+import { useAccountStore } from './useAccountStore'
 import { playNewMailSound } from '../lib/sound'
+import { notifyNewMail } from '../lib/notifications'
 
 interface MailDataStore {
   foldersByAccount: Record<string, MailFolder[]>
@@ -48,8 +50,14 @@ export const useMailDataStore = create<MailDataStore>((set, get) => ({
       await window.api.mail.sync(accountId)
       await get().fetchFolders(accountId)
       const unreadAfter = sumUnread(get().foldersByAccount[accountId] ?? [])
-      if (unreadAfter > unreadBefore && useSettingsStore.getState().soundEnabled) {
-        playNewMailSound()
+      const newCount = unreadAfter - unreadBefore
+      if (newCount > 0) {
+        const settings = useSettingsStore.getState()
+        if (settings.soundEnabled) playNewMailSound()
+        if (settings.notificationsEnabled) {
+          const account = useAccountStore.getState().accounts.find((a) => a.id === accountId)
+          notifyNewMail(newCount, account?.displayName)
+        }
       }
     } finally {
       set({ syncingAccountIds: get().syncingAccountIds.filter((id) => id !== accountId) })

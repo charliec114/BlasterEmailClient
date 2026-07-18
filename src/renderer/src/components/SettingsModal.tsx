@@ -17,9 +17,17 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
   const theme = useSettingsStore((s) => s.theme)
   const language = useSettingsStore((s) => s.language)
   const soundEnabled = useSettingsStore((s) => s.soundEnabled)
+  const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled)
   const setTheme = useSettingsStore((s) => s.setTheme)
   const setLanguage = useSettingsStore((s) => s.setLanguage)
   const setSoundEnabled = useSettingsStore((s) => s.setSoundEnabled)
+  const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled)
+
+  const appVersion = useSettingsStore((s) => s.appVersion)
+  const updateInfo = useSettingsStore((s) => s.updateInfo)
+  const checkingUpdate = useSettingsStore((s) => s.checkingUpdate)
+  const updateError = useSettingsStore((s) => s.updateError)
+  const checkForUpdate = useSettingsStore((s) => s.checkForUpdate)
 
   const aiProvider = useSettingsStore((s) => s.aiProvider)
   const setAiProvider = useSettingsStore((s) => s.setAiProvider)
@@ -124,6 +132,15 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
             {t('settingsModal.sound')}
           </label>
 
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={notificationsEnabled}
+              onChange={(e) => setNotificationsEnabled(e.target.checked)}
+            />
+            {t('settingsModal.notifications')}
+          </label>
+
           <fieldset>
             <legend>{t('settingsModal.aiSection')}</legend>
 
@@ -216,6 +233,46 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
                 placeholder={t('settingsModal.stylePromptPlaceholder')}
               />
             </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>{t('settingsModal.aboutSection')}</legend>
+            <div className="about-panel">
+              <img src="/icon.png" alt="Blaster Email Client" className="about-icon" />
+              <div className="about-info">
+                <div className="about-name">
+                  Blaster <span className="about-name-accent">Email Client</span>
+                </div>
+                <div className="about-version">{t('settingsModal.version', { version: appVersion || '…' })}</div>
+                <p className="about-tagline">{t('settingsModal.aboutTagline')}</p>
+                <div className="about-links">
+                  <a href="https://blaster.com.ar" target="_blank" rel="noreferrer" className="about-link">
+                    blaster.com.ar
+                  </a>
+                  <a
+                    href="https://github.com/charliec114/BlasterEmailClient"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="about-link"
+                  >
+                    GitHub
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="about-update-row">
+              <button type="button" className="reply-btn" disabled={checkingUpdate} onClick={checkForUpdate}>
+                {checkingUpdate ? t('settingsModal.checkingUpdate') : t('settingsModal.checkUpdate')}
+              </button>
+              {updateInfo && !updateInfo.hasUpdate && <span className="test-ok">{t('settingsModal.upToDate')}</span>}
+              {updateInfo && updateInfo.hasUpdate && (
+                <a href={updateInfo.url} target="_blank" rel="noreferrer" className="update-available-link">
+                  {t('settingsModal.updateAvailable', { version: updateInfo.latestVersion })}
+                </a>
+              )}
+              {updateError && <span className="test-fail">{t('settingsModal.updateCheckError', { error: updateError })}</span>}
+            </div>
           </fieldset>
         </div>
 

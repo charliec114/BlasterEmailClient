@@ -242,6 +242,7 @@ function rowToMessage(row: MessageRow, attachments: AttachmentMeta[]): Message {
     from: { name: row.from_name || row.from_email || 'Desconocido', email: row.from_email || '' },
     to: row.to_json ? JSON.parse(row.to_json) : [],
     cc: row.cc_json ? JSON.parse(row.cc_json) : [],
+    subject: row.subject,
     date: row.date,
     bodyText: row.body_text,
     bodyHtml: row.body_html ?? undefined,
@@ -250,6 +251,24 @@ function rowToMessage(row: MessageRow, attachments: AttachmentMeta[]): Message {
     references: row.refs_json ? JSON.parse(row.refs_json) : [],
     attachments
   }
+}
+
+// Gmail expone el mismo mensaje en varias carpetas (labels) — típicamente en INBOX y en
+// "Todos" ([Gmail]/All Mail, que sincronizamos como 'archive') — así que un mismo email
+// puede quedar guardado dos veces con distinto folder_id/remote_uid. Se deduplica por
+// message_id, combinando los flags (leído/marcado si lo está en cualquiera de las copias).
+function dedupeByMessageId(rows: MessageRow[]): MessageRow[] {
+  const byMessageId = new Map<string, MessageRow>()
+  for (const row of rows) {
+    const existing = byMessageId.get(row.message_id)
+    if (!existing) {
+      byMessageId.set(row.message_id, row)
+    } else {
+      existing.is_read = existing.is_read || row.is_read
+      existing.is_flagged = existing.is_flagged || row.is_flagged
+    }
+  }
+  return Array.from(byMessageId.values())
 }
 
 export function listThreadsForFolder(accountId: string, folderId: string): Thread[] {
@@ -278,7 +297,8 @@ export function listThreadsForFolder(accountId: string, folderId: string): Threa
   }
 
   const threads: Thread[] = []
-  for (const [threadKey, messageRows] of byThread) {
+  for (const [threadKey, rawMessageRows] of byThread) {
+    const messageRows = dedupeByMessageId(rawMessageRows)
     const lastRow = messageRows[messageRows.length - 1]
     const participantsMap = new Map<string, { name: string; email: string }>()
     for (const row of messageRows) {
