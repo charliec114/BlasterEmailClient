@@ -1,6 +1,6 @@
 {
   "name": "blaster-email-client",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Cliente de email multi-cuenta con agrupación de conversaciones y asistencia de IA (local o en la nube)",
   "main": "./out/main/index.js",
   "private": true,
