@@ -27,7 +27,7 @@ async function generate(settings: CloudAiSettings, prompt: string): Promise<stri
     },
     body: JSON.stringify({
       model: settings.model,
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: AI_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: prompt }]
     })
@@ -62,4 +62,9 @@ export async function suggestSubject(settings: CloudAiSettings, context: string,
   }
   const result = await generate(settings, subjectPrompt(settings.stylePrompt, context, body))
   return cleanupSubject(result)
+}
+
+export async function answerFreeform(settings: CloudAiSettings, prompt: string): Promise<string> {
+  const result = await generate(settings, prompt)
+  return stripMetaCommentary(result)
 }

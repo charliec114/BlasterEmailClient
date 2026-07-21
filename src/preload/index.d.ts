@@ -6,6 +6,8 @@ import type {
   Contact,
   ConnectionTestResult,
   MailFolder,
+  PendingAskInput,
+  PendingAskResult,
   SendMailInput,
   StoredSummary,
   Thread,
@@ -33,6 +35,7 @@ interface BlasterApi {
     listFolders: (accountId: string) => Promise<MailFolder[]>
     listThreads: (accountId: string, folderId: string) => Promise<Thread[]>
     listUnifiedInbox: () => Promise<Thread[]>
+    search: (query: string) => Promise<Thread[]>
     send: (input: SendMailInput) => Promise<void>
     markThreadRead: (accountId: string, folderId: string, threadId: string) => Promise<void>
     markFolderRead: (accountId: string, folderId: string) => Promise<void>
@@ -61,6 +64,9 @@ interface BlasterApi {
   }
   dialog: {
     pickFiles: () => Promise<AttachmentRef[]>
+  }
+  pending: {
+    ask: (input: PendingAskInput) => Promise<PendingAskResult>
   }
 }
 

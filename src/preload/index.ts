@@ -8,6 +8,8 @@ import type {
   Contact,
   ConnectionTestResult,
   MailFolder,
+  PendingAskInput,
+  PendingAskResult,
   SendMailInput,
   StoredSummary,
   Thread,
@@ -37,6 +39,7 @@ const api = {
     listThreads: (accountId: string, folderId: string): Promise<Thread[]> =>
       ipcRenderer.invoke(IPC.mailListThreads, accountId, folderId),
     listUnifiedInbox: (): Promise<Thread[]> => ipcRenderer.invoke(IPC.mailListUnifiedInbox),
+    search: (query: string): Promise<Thread[]> => ipcRenderer.invoke(IPC.mailSearch, query),
     send: (input: SendMailInput): Promise<void> => ipcRenderer.invoke(IPC.mailSend, input),
     markThreadRead: (accountId: string, folderId: string, threadId: string): Promise<void> =>
       ipcRenderer.invoke(IPC.mailMarkThreadRead, accountId, folderId, threadId),
@@ -73,6 +76,9 @@ const api = {
   },
   dialog: {
     pickFiles: (): Promise<AttachmentRef[]> => ipcRenderer.invoke(IPC.dialogPickFiles)
+  },
+  pending: {
+    ask: (input: PendingAskInput): Promise<PendingAskResult> => ipcRenderer.invoke(IPC.pendingAsk, input)
   }
 }
 

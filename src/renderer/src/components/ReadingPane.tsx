@@ -35,12 +35,13 @@ export default function ReadingPane() {
   const isUnified = selectedFolderId === UNIFIED_INBOX_ID
   const threadsByFolder = useMailDataStore((s) => s.threadsByFolder)
   const unifiedInboxThreads = useMailDataStore((s) => s.unifiedInboxThreads)
+  const searchResults = useMailDataStore((s) => s.searchResults)
   const markThreadRead = useMailDataStore((s) => s.markThreadRead)
   const openCompose = useComposeStore((s) => s.openCompose)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const foundThread = (isUnified ? unifiedInboxThreads : threadsByFolder[selectedFolderId ?? ''] ?? []).find(
-    (t) => t.id === selectedThreadId
-  )
+  const foundThread =
+    (isUnified ? unifiedInboxThreads : threadsByFolder[selectedFolderId ?? ''] ?? []).find((t) => t.id === selectedThreadId) ??
+    searchResults.find((t) => t.id === selectedThreadId)
 
   useEffect(() => {
     if (foundThread && foundThread.hasUnread) {

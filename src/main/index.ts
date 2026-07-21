@@ -9,6 +9,7 @@ import { registerContactsIpc } from './ipc/contacts'
 import { registerDialogIpc } from './ipc/dialog'
 import { registerApiKeysIpc } from './ipc/apiKeys'
 import { registerAppIpc } from './ipc/app'
+import { registerPendingIpc } from './ipc/pending'
 import { setMainWindow } from './windowManager'
 
 function createWindow(): void {
@@ -69,6 +70,7 @@ app.whenReady().then(() => {
   registerDialogIpc()
   registerApiKeysIpc()
   registerAppIpc()
+  registerPendingIpc()
 
   createWindow()
 

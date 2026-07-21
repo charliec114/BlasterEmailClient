@@ -12,6 +12,7 @@ export const IPC = {
   mailListFolders: 'mail:list-folders',
   mailListThreads: 'mail:list-threads',
   mailListUnifiedInbox: 'mail:list-unified-inbox',
+  mailSearch: 'mail:search',
   mailSend: 'mail:send',
   mailMarkThreadRead: 'mail:mark-thread-read',
   mailMarkFolderRead: 'mail:mark-folder-read',
@@ -29,5 +30,6 @@ export const IPC = {
   contactsList: 'contacts:list',
   contactsRemove: 'contacts:remove',
   contactsUpdate: 'contacts:update',
-  dialogPickFiles: 'dialog:pick-files'
+  dialogPickFiles: 'dialog:pick-files',
+  pendingAsk: 'pending:ask'
 } as const

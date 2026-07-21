@@ -1,9 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMailStore, UNIFIED_INBOX_ID } from '../store/useMailStore'
 import { useMailDataStore } from '../store/useMailDataStore'
 import { useAccountStore } from '../store/useAccountStore'
 import { useComposeStore } from '../store/useComposeStore'
 import { useT } from '../i18n/useT'
+
+const SEARCH_DEBOUNCE_MS = 300
 
 export default function MessageList() {
   const { t, locale } = useT()
@@ -16,15 +18,43 @@ export default function MessageList() {
   const isUnified = selectedFolderId === UNIFIED_INBOX_ID
   const threadsByFolder = useMailDataStore((s) => s.threadsByFolder)
   const unifiedInboxThreads = useMailDataStore((s) => s.unifiedInboxThreads)
+  const searchQuery = useMailDataStore((s) => s.searchQuery)
+  const searchResults = useMailDataStore((s) => s.searchResults)
+  const searching = useMailDataStore((s) => s.searching)
+  const search = useMailDataStore((s) => s.search)
+  const clearSearch = useMailDataStore((s) => s.clearSearch)
   const fetchThreads = useMailDataStore((s) => s.fetchThreads)
   const fetchUnifiedInbox = useMailDataStore((s) => s.fetchUnifiedInbox)
   const openCompose = useComposeStore((s) => s.openCompose)
   const accounts = useAccountStore((s) => s.accounts)
 
+  const [searchInput, setSearchInput] = useState(searchQuery)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isSearching = searchQuery.trim() !== ''
+
   useEffect(() => {
     if (isUnified) fetchUnifiedInbox()
     else if (selectedAccountId && selectedFolderId) fetchThreads(selectedAccountId, selectedFolderId)
   }, [isUnified, selectedAccountId, selectedFolderId, fetchThreads, fetchUnifiedInbox])
+
+  // El buscador puede activarse desde afuera (ej: un link a un hilo desde el Asistente),
+  // así que el input visible tiene que reflejar el searchQuery del store, no solo lo que
+  // se tipeó acá.
+  useEffect(() => {
+    setSearchInput(searchQuery)
+  }, [searchQuery])
+
+  function handleSearchInput(value: string): void {
+    setSearchInput(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => search(value), SEARCH_DEBOUNCE_MS)
+  }
+
+  function handleClearSearch(): void {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    setSearchInput('')
+    clearSearch()
+  }
 
   function formatListDate(iso: string): string {
     const date = new Date(iso)
@@ -35,13 +65,14 @@ export default function MessageList() {
       : date.toLocaleDateString(locale, { day: '2-digit', month: 'short' })
   }
 
-  const threads = isUnified ? unifiedInboxThreads : threadsByFolder[selectedFolderId ?? ''] ?? []
+  const threads = isSearching ? searchResults : isUnified ? unifiedInboxThreads : threadsByFolder[selectedFolderId ?? ''] ?? []
+  const showAccountBorder = isUnified || isSearching
   const composeAccountId = selectedAccountId ?? accounts[0]?.id ?? null
 
   return (
     <section className="message-list">
       <div className="message-list-header">
-        <span>{selectedFolderName ?? t('messageList.noFolderSelected')}</span>
+        <span>{isSearching ? t('messageList.searchResultsFor', { query: searchInput }) : selectedFolderName ?? t('messageList.noFolderSelected')}</span>
         <button
           type="button"
           className="new-message-btn"
@@ -51,12 +82,28 @@ export default function MessageList() {
           {t('messageList.newMessage')}
         </button>
       </div>
+
+      <div className="message-list-search">
+        <span className="search-icon">🔎</span>
+        <input
+          value={searchInput}
+          onChange={(e) => handleSearchInput(e.target.value)}
+          placeholder={t('messageList.searchPlaceholder')}
+        />
+        {searchInput && (
+          <button type="button" className="search-clear-btn" title={t('common.close')} onClick={handleClearSearch}>
+            ✕
+          </button>
+        )}
+      </div>
+
       <ul>
+        {isSearching && searching && <li className="message-list-empty">{t('common.loading')}</li>}
         {threads.map((thread) => (
           <li key={thread.id}>
             <button
               className={`message-row ${thread.id === selectedThreadId ? 'active' : ''} ${thread.hasUnread ? 'unread' : ''}`}
-              style={isUnified ? { borderLeft: `4px solid ${accounts.find((a) => a.id === thread.accountId)?.color ?? 'transparent'}` } : undefined}
+              style={showAccountBorder ? { borderLeft: `4px solid ${accounts.find((a) => a.id === thread.accountId)?.color ?? 'transparent'}` } : undefined}
               onClick={() => selectThread(thread.id)}
             >
               <div className="message-row-top">
@@ -75,7 +122,11 @@ export default function MessageList() {
             </button>
           </li>
         ))}
-        {threads.length === 0 && <li className="message-list-empty">{t('messageList.noConversations')}</li>}
+        {!searching && threads.length === 0 && (
+          <li className="message-list-empty">
+            {isSearching ? t('messageList.noSearchResults') : t('messageList.noConversations')}
+          </li>
+        )}
       </ul>
     </section>
   )

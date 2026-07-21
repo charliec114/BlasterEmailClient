@@ -116,6 +116,33 @@ export interface UpdateCheckResult {
   url: string
 }
 
+export interface PendingAskHistoryEntry {
+  question: string
+  answer: string
+}
+
+export interface PendingAskInput {
+  accountIds: string[]
+  fromDate: string
+  toDate: string
+  question: string
+  history: PendingAskHistoryEntry[]
+}
+
+export interface PendingThreadRef {
+  accountId: string
+  threadKey: string
+  subject: string
+}
+
+export interface PendingAskResult {
+  answer: string
+  threadCount: number
+  messageCount: number
+  truncated: boolean
+  threads: PendingThreadRef[]
+}
+
 export interface SendMailInput {
   accountId: string
   to: string[]

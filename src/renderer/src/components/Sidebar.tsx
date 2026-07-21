@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type DragEvent, type MouseEvent } from 'react'
 import { useAccountStore } from '../store/useAccountStore'
-import { useMailStore, UNIFIED_INBOX_ID } from '../store/useMailStore'
+import { useMailStore, UNIFIED_INBOX_ID, ASSISTANT_VIEW_ID } from '../store/useMailStore'
 import { useMailDataStore } from '../store/useMailDataStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import AccountWizard from './AccountWizard'
@@ -47,6 +47,7 @@ export default function Sidebar() {
   const selectedFolderId = useMailStore((s) => s.selectedFolderId)
   const selectFolder = useMailStore((s) => s.selectFolder)
   const selectUnifiedInbox = useMailStore((s) => s.selectUnifiedInbox)
+  const selectAssistantView = useMailStore((s) => s.selectAssistantView)
 
   const sidebarOrder = useSettingsStore((s) => s.sidebarOrder)
   const setSidebarOrder = useSettingsStore((s) => s.setSidebarOrder)
@@ -160,6 +161,17 @@ export default function Sidebar() {
         {!loadingAccounts && accounts.length === 0 && (
           <div className="sidebar-empty">{t('sidebar.noAccounts')}</div>
         )}
+
+        <div className="sidebar-unified-row">
+          <button
+            type="button"
+            className={`sidebar-folder-btn ${selectedFolderId === ASSISTANT_VIEW_ID ? 'active' : ''}`}
+            onClick={selectAssistantView}
+          >
+            <span className="folder-icon">✨</span>
+            <span className="folder-name">{t('sidebar.assistant')}</span>
+          </button>
+        </div>
 
         {order.map((itemId) => {
           if (itemId === UNIFIED_INBOX_ID) {

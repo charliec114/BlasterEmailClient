@@ -16,11 +16,15 @@ const es = {
   'sidebar.expandAccount': 'Expandir cuenta',
   'sidebar.addAccount': '+ Agregar cuenta',
   'sidebar.contacts': '👥 Contactos',
+  'sidebar.assistant': 'Asistente',
   'sidebar.settings': '⚙️ Ajustes',
 
   'messageList.noFolderSelected': 'Sin carpeta seleccionada',
   'messageList.newMessage': '✏️ Nuevo',
   'messageList.noConversations': 'No hay conversaciones en esta carpeta.',
+  'messageList.searchPlaceholder': 'Buscar en todos los correos...',
+  'messageList.searchResultsFor': 'Resultados para "{{query}}"',
+  'messageList.noSearchResults': 'No se encontraron correos que coincidan con la búsqueda.',
 
   'readingPane.selectConversation': 'Seleccioná una conversación para leerla',
   'readingPane.participants': 'Participantes:',
@@ -141,7 +145,23 @@ const es = {
   'threadSummaryCard.error': 'No se pudo generar el resumen — {{error}}',
   'threadSummaryCard.generating': 'Generando resumen...',
   'threadSummaryCard.regenerate': 'Regenerar resumen',
-  'threadSummaryCard.generate': 'Generar resumen'
+  'threadSummaryCard.generate': 'Generar resumen',
+
+  'assistantPanel.description': 'Preguntale lo que necesites sobre tus correos: qué te queda pendiente, qué te pidieron, qué prometiste, o cualquier otra cosa que quieras rastrear en el rango y la cuenta que elijas.',
+  'assistantPanel.account': 'Cuentas:',
+  'assistantPanel.allAccounts': 'Todas las cuentas',
+  'assistantPanel.accountsSelectedCount': '{{count}} cuentas seleccionadas',
+  'assistantPanel.from': 'Desde',
+  'assistantPanel.to': 'Hasta',
+  'assistantPanel.newConversation': 'Nueva conversación',
+  'assistantPanel.untitled': 'Conversación sin título',
+  'assistantPanel.questionPlaceholder': 'Escribí tu pregunta... (Enter para enviar, Shift+Enter para salto de línea)',
+  'assistantPanel.ask': 'Preguntar',
+  'assistantPanel.asking': 'Analizando tus correos...',
+  'assistantPanel.scanned': '{{threadCount}} hilos analizados ({{messageCount}} mensajes)',
+  'assistantPanel.truncatedNote': '⚠ Había demasiado contenido para ese rango — se analizó solo una parte, priorizando los hilos más recientes.',
+  'assistantPanel.error': 'No se pudo generar la respuesta — {{error}}',
+  'assistantPanel.emptyState': 'Preguntá lo que quieras sobre tus correos en el rango y la cuenta elegidos.'
 } as const
 
 type TranslationKey = keyof typeof es
@@ -164,11 +184,15 @@ const en: Record<TranslationKey, string> = {
   'sidebar.expandAccount': 'Expand account',
   'sidebar.addAccount': '+ Add account',
   'sidebar.contacts': '👥 Contacts',
+  'sidebar.assistant': 'Assistant',
   'sidebar.settings': '⚙️ Settings',
 
   'messageList.noFolderSelected': 'No folder selected',
   'messageList.newMessage': '✏️ New',
   'messageList.noConversations': 'No conversations in this folder.',
+  'messageList.searchPlaceholder': 'Search all mail...',
+  'messageList.searchResultsFor': 'Results for "{{query}}"',
+  'messageList.noSearchResults': 'No mail matches your search.',
 
   'readingPane.selectConversation': 'Select a conversation to read it',
   'readingPane.participants': 'Participants:',
@@ -289,7 +313,23 @@ const en: Record<TranslationKey, string> = {
   'threadSummaryCard.error': "Couldn't generate the summary — {{error}}",
   'threadSummaryCard.generating': 'Generating summary...',
   'threadSummaryCard.regenerate': 'Regenerate summary',
-  'threadSummaryCard.generate': 'Generate summary'
+  'threadSummaryCard.generate': 'Generate summary',
+
+  'assistantPanel.description': "Ask anything about your mail: what's still pending, what you were asked to do, what you committed to, or anything else you want to track within the range and account you pick.",
+  'assistantPanel.account': 'Accounts:',
+  'assistantPanel.allAccounts': 'All accounts',
+  'assistantPanel.accountsSelectedCount': '{{count}} accounts selected',
+  'assistantPanel.from': 'From',
+  'assistantPanel.to': 'To',
+  'assistantPanel.newConversation': 'New conversation',
+  'assistantPanel.untitled': 'Untitled conversation',
+  'assistantPanel.questionPlaceholder': 'Type your question... (Enter to send, Shift+Enter for a new line)',
+  'assistantPanel.ask': 'Ask',
+  'assistantPanel.asking': 'Analyzing your mail...',
+  'assistantPanel.scanned': '{{threadCount}} threads analyzed ({{messageCount}} messages)',
+  'assistantPanel.truncatedNote': "⚠ There was too much content for that range — only part of it was analyzed, prioritizing the most recent threads.",
+  'assistantPanel.error': "Couldn't generate an answer — {{error}}",
+  'assistantPanel.emptyState': 'Ask anything about your mail within the range and account you picked.'
 }
 
 export const translations = { es, en }

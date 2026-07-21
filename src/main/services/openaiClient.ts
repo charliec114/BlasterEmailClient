@@ -60,3 +60,8 @@ export async function suggestSubject(settings: CloudAiSettings, context: string,
   const result = await generate(settings, subjectPrompt(settings.stylePrompt, context, body))
   return cleanupSubject(result)
 }
+
+export async function answerFreeform(settings: CloudAiSettings, prompt: string): Promise<string> {
+  const result = await generate(settings, prompt)
+  return stripMetaCommentary(result)
+}

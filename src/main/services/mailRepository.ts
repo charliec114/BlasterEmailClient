@@ -271,21 +271,26 @@ function dedupeByMessageId(rows: MessageRow[]): MessageRow[] {
   return Array.from(byMessageId.values())
 }
 
-export function listThreadsForFolder(accountId: string, folderId: string): Thread[] {
+// Arma los hilos de una cuenta a partir de una lista de thread_keys. El folderId que
+// queda en cada Thread es el de la carpeta "más primaria" entre las que tiene mensajes
+// (inbox > sent > ... > custom, ver FOLDER_KIND_ORDER) — importante para búsquedas que
+// cruzan carpetas, donde no hay una carpeta "actual" obvia como en listThreadsForFolder.
+function buildThreadsForKeys(accountId: string, threadKeys: string[]): Thread[] {
   const db = getDb()
+  if (threadKeys.length === 0) return []
 
-  const threadKeyRows = db
-    .prepare('SELECT DISTINCT thread_key FROM messages WHERE account_id = ? AND folder_id = ?')
-    .all(accountId, folderId) as { thread_key: string }[]
-
-  if (threadKeyRows.length === 0) return []
-
-  const threadKeys = threadKeyRows.map((row) => row.thread_key)
   const placeholders = threadKeys.map(() => '?').join(',')
-
   const rows = db
     .prepare(`SELECT * FROM messages WHERE account_id = ? AND thread_key IN (${placeholders}) ORDER BY date ASC`)
     .all(accountId, ...threadKeys) as MessageRow[]
+
+  const folderKindById = new Map<string, MailFolder['kind']>()
+  for (const folder of db.prepare('SELECT id, kind FROM folders WHERE account_id = ?').all(accountId) as {
+    id: string
+    kind: MailFolder['kind']
+  }[]) {
+    folderKindById.set(folder.id, folder.kind)
+  }
 
   const attachmentsByMessage = getAttachmentsByMessageIds(rows.map((row) => row.id))
 
@@ -300,6 +305,12 @@ export function listThreadsForFolder(accountId: string, folderId: string): Threa
   for (const [threadKey, rawMessageRows] of byThread) {
     const messageRows = dedupeByMessageId(rawMessageRows)
     const lastRow = messageRows[messageRows.length - 1]
+    const primaryRow = [...messageRows].sort(
+      (a, b) =>
+        FOLDER_KIND_ORDER[folderKindById.get(a.folder_id) ?? 'custom'] -
+        FOLDER_KIND_ORDER[folderKindById.get(b.folder_id) ?? 'custom']
+    )[0]
+
     const participantsMap = new Map<string, { name: string; email: string }>()
     for (const row of messageRows) {
       if (row.from_email) participantsMap.set(row.from_email, { name: row.from_name || row.from_email, email: row.from_email })
@@ -308,7 +319,7 @@ export function listThreadsForFolder(accountId: string, folderId: string): Threa
     threads.push({
       id: threadKey,
       accountId,
-      folderId,
+      folderId: primaryRow.folder_id,
       subject: lastRow.subject,
       participants: Array.from(participantsMap.values()),
       messages: messageRows.map((row) => rowToMessage(row, attachmentsByMessage.get(row.id) ?? [])),
@@ -317,6 +328,51 @@ export function listThreadsForFolder(accountId: string, folderId: string): Threa
       hasUnread: messageRows.some((row) => !row.is_read),
       isFlagged: messageRows.some((row) => Boolean(row.is_flagged))
     })
+  }
+
+  return threads
+}
+
+export function listThreadsForFolder(accountId: string, folderId: string): Thread[] {
+  const threadKeyRows = getDb()
+    .prepare('SELECT DISTINCT thread_key FROM messages WHERE account_id = ? AND folder_id = ?')
+    .all(accountId, folderId) as { thread_key: string }[]
+
+  if (threadKeyRows.length === 0) return []
+
+  const threads = buildThreadsForKeys(accountId, threadKeyRows.map((row) => row.thread_key))
+  // El usuario está navegando esta carpeta puntual: las acciones (marcar leído, etc.)
+  // tienen que referirse a ella, no a la carpeta "primaria" que elige buildThreadsForKeys.
+  return threads
+    .map((thread) => ({ ...thread, folderId }))
+    .sort((a, b) => new Date(b.lastMessageDate).getTime() - new Date(a.lastMessageDate).getTime())
+}
+
+export function searchMessages(query: string): Thread[] {
+  const trimmed = query.trim()
+  if (!trimmed) return []
+
+  const like = `%${trimmed}%`
+  const matches = getDb()
+    .prepare(
+      `SELECT DISTINCT account_id, thread_key FROM messages
+       WHERE subject LIKE ? OR body_text LIKE ? OR from_name LIKE ? OR from_email LIKE ?
+          OR to_json LIKE ? OR cc_json LIKE ?`
+    )
+    .all(like, like, like, like, like, like) as { account_id: string; thread_key: string }[]
+
+  if (matches.length === 0) return []
+
+  const keysByAccount = new Map<string, string[]>()
+  for (const match of matches) {
+    const list = keysByAccount.get(match.account_id) ?? []
+    list.push(match.thread_key)
+    keysByAccount.set(match.account_id, list)
+  }
+
+  const threads: Thread[] = []
+  for (const [accountId, threadKeys] of keysByAccount) {
+    threads.push(...buildThreadsForKeys(accountId, threadKeys))
   }
 
   return threads.sort((a, b) => new Date(b.lastMessageDate).getTime() - new Date(a.lastMessageDate).getTime())

@@ -1,5 +1,6 @@
 import { getAllSettings } from './settingsRepository'
 import { getApiKey } from './apiKeysRepository'
+import { pendingQueryPrompt, type PendingChatTurn } from './aiPrompts'
 import * as ollama from './ollamaClient'
 import * as openai from './openaiClient'
 import * as gemini from './geminiClient'
@@ -11,6 +12,7 @@ interface AiClient {
   summarizeThread(settings: never, threadText: string): Promise<string>
   assistCompose(settings: never, instruction: string, context: string, currentBody: string): Promise<string>
   suggestSubject(settings: never, context: string, body: string): Promise<string>
+  answerFreeform(settings: never, prompt: string): Promise<string>
 }
 
 function activeProvider(): AiProvider {
@@ -54,4 +56,11 @@ export async function assistCompose(instruction: string, context: string, curren
 export async function suggestSubject(context: string, body: string): Promise<string> {
   const provider = activeProvider()
   return clientFor(provider).suggestSubject(buildSettings(provider) as never, context, body)
+}
+
+export async function answerPendingQuery(digestText: string, history: PendingChatTurn[], question: string): Promise<string> {
+  const provider = activeProvider()
+  const settings = buildSettings(provider) as { stylePrompt: string }
+  const prompt = pendingQueryPrompt(settings.stylePrompt, digestText, history, question)
+  return clientFor(provider).answerFreeform(settings as never, prompt)
 }

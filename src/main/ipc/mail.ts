@@ -6,7 +6,8 @@ import {
   getAttachmentContent,
   listFoldersForAccount,
   listThreadsForFolder,
-  listUnifiedInboxThreads
+  listUnifiedInboxThreads,
+  searchMessages
 } from '../services/mailRepository'
 import { markFolderRead, markThreadRead, syncAccount } from '../services/syncService'
 import { sendMail } from '../services/mailSend'
@@ -21,6 +22,8 @@ export function registerMailIpc(): void {
   )
 
   ipcMain.handle(IPC.mailListUnifiedInbox, () => listUnifiedInboxThreads())
+
+  ipcMain.handle(IPC.mailSearch, (_event, query: string) => searchMessages(query))
 
   ipcMain.handle(IPC.mailSend, (_event, input: SendMailInput) => sendMail(input))
 

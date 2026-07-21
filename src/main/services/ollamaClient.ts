@@ -23,7 +23,7 @@ export async function listOllamaModels(baseUrl: string): Promise<string[]> {
   return (data.models ?? []).map((m) => m.name)
 }
 
-async function generate(baseUrl: string, model: string, prompt: string): Promise<string> {
+async function generate(baseUrl: string, model: string, prompt: string, numCtx?: number): Promise<string> {
   if (!model) {
     throw new Error('No hay un modelo de Ollama seleccionado. Configuralo en Ajustes.')
   }
@@ -31,7 +31,13 @@ async function generate(baseUrl: string, model: string, prompt: string): Promise
   const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, prompt, system: AI_SYSTEM_PROMPT, stream: false })
+    body: JSON.stringify({
+      model,
+      prompt,
+      system: AI_SYSTEM_PROMPT,
+      stream: false,
+      ...(numCtx ? { options: { num_ctx: numCtx } } : {})
+    })
   })
 
   if (!res.ok) {
@@ -67,4 +73,15 @@ export async function suggestSubject(settings: OllamaSettings, context: string, 
   }
   const result = await generate(settings.baseUrl, settings.model, subjectPrompt(settings.stylePrompt, context, body))
   return cleanupSubject(result)
+}
+
+// El digest de emails que arma el Asistente puede ser bastante largo (varios hilos con
+// adjuntos incluidos) — sin subir num_ctx, Ollama lo trunca en silencio contra la ventana
+// de contexto por defecto del modelo (a veces solo 2K-4K tokens) y el modelo termina
+// "sin ver" la mayor parte de los correos.
+const ASSISTANT_NUM_CTX = 24576
+
+export async function answerFreeform(settings: OllamaSettings, prompt: string): Promise<string> {
+  const result = await generate(settings.baseUrl, settings.model, prompt, ASSISTANT_NUM_CTX)
+  return stripMetaCommentary(result)
 }
