@@ -66,7 +66,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
   ]
 
   const providerOptions: { value: AiProvider; label: string }[] = [
-    { value: 'ollama', label: 'Ollama' },
+    { value: 'ollama', label: t('settingsModal.providerLocal') },
     { value: 'openai', label: 'OpenAI' },
     { value: 'gemini', label: 'Gemini' },
     { value: 'anthropic', label: 'Anthropic' }
@@ -78,7 +78,12 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
     gemini: setGeminiModel,
     anthropic: setAnthropicModel
   }
-  const providerLabel: Record<AiProvider, string> = { ollama: 'Ollama', openai: 'OpenAI', gemini: 'Gemini', anthropic: 'Anthropic' }
+  const providerLabel: Record<AiProvider, string> = {
+    ollama: t('settingsModal.providerLocal'),
+    openai: 'OpenAI',
+    gemini: 'Gemini',
+    anthropic: 'Anthropic'
+  }
 
   function isProviderReady(provider: AiProvider): boolean {
     if (provider === 'ollama') return ollamaModel !== ''
@@ -174,9 +179,10 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
                   <input
                     value={ollamaBaseUrl}
                     onChange={(e) => setOllamaBaseUrl(e.target.value)}
-                    placeholder="http://localhost:11434"
+                    placeholder="http://localhost:11434/v1"
                   />
                 </label>
+                <p className="ai-provider-hint">{t('settingsModal.ollamaServerHint')}</p>
 
                 <div className="field-row">
                   <label>

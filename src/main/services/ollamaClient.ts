@@ -6,50 +6,81 @@ export interface OllamaSettings {
   stylePrompt: string
 }
 
-interface TagsResponse {
-  models?: { name: string }[]
+interface ModelsResponse {
+  data?: { id: string }[]
 }
 
-interface GenerateResponse {
-  response?: string
+interface ChatCompletionResponse {
+  choices?: { message?: { content?: string } }[]
+}
+
+function apiRoot(baseUrl: string): string {
+  return baseUrl.replace(/\/+$/, '').replace(/\/v1$/, '')
+}
+
+// La generación local (Ollama, MLX, etc.) puede tardar varios minutos en modelos grandes
+// o prompts largos (el digest del Asistente incluye hilos completos) — un timeout corto
+// cortaría respuestas válidas a mitad de camino.
+const GENERATE_TIMEOUT_MS = 5 * 60_000
+const LIST_MODELS_TIMEOUT_MS = 15_000
+
+async function fetchWithTimeout(url: string, init: RequestInit | undefined, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`El servidor no respondió en ${Math.round(timeoutMs / 1000)}s (tiempo de espera agotado)`)
+    }
+    const cause = error instanceof Error && error.cause instanceof Error ? error.cause.message : undefined
+    throw new Error(`No se pudo conectar con ${url}${cause ? ` (${cause})` : ''}`)
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export async function listOllamaModels(baseUrl: string): Promise<string[]> {
-  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tags`)
+  const res = await fetchWithTimeout(`${apiRoot(baseUrl)}/v1/models`, undefined, LIST_MODELS_TIMEOUT_MS)
   if (!res.ok) {
-    throw new Error(`Ollama respondió ${res.status}`)
+    throw new Error(`El servidor respondió ${res.status}`)
   }
-  const data = (await res.json()) as TagsResponse
-  return (data.models ?? []).map((m) => m.name)
+  const data = (await res.json()) as ModelsResponse
+  return (data.data ?? []).map((m) => m.id)
 }
 
-async function generate(baseUrl: string, model: string, prompt: string, numCtx?: number): Promise<string> {
-  if (!model) {
-    throw new Error('No hay un modelo de Ollama seleccionado. Configuralo en Ajustes.')
+async function generate(settings: OllamaSettings, prompt: string): Promise<string> {
+  if (!settings.model) {
+    throw new Error('No hay un modelo seleccionado. Configuralo en Ajustes.')
   }
 
-  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      prompt,
-      system: AI_SYSTEM_PROMPT,
-      stream: false,
-      ...(numCtx ? { options: { num_ctx: numCtx } } : {})
-    })
-  })
+  const res = await fetchWithTimeout(
+    `${apiRoot(settings.baseUrl)}/v1/chat/completions`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: settings.model,
+        messages: [
+          { role: 'system', content: AI_SYSTEM_PROMPT },
+          { role: 'user', content: prompt }
+        ],
+        stream: false
+      })
+    },
+    GENERATE_TIMEOUT_MS
+  )
 
   if (!res.ok) {
-    throw new Error(`Ollama respondió ${res.status}`)
+    throw new Error(`El servidor respondió ${res.status}`)
   }
 
-  const data = (await res.json()) as GenerateResponse
-  return (data.response ?? '').trim()
+  const data = (await res.json()) as ChatCompletionResponse
+  return (data.choices?.[0]?.message?.content ?? '').trim()
 }
 
 export async function summarizeThread(settings: OllamaSettings, threadText: string): Promise<string> {
-  const result = await generate(settings.baseUrl, settings.model, summarizePrompt(settings.stylePrompt, threadText))
+  const result = await generate(settings, summarizePrompt(settings.stylePrompt, threadText))
   return stripMetaCommentary(result)
 }
 
@@ -59,11 +90,7 @@ export async function assistCompose(
   context: string,
   currentBody: string
 ): Promise<string> {
-  const result = await generate(
-    settings.baseUrl,
-    settings.model,
-    composePrompt(settings.stylePrompt, instruction, context, currentBody)
-  )
+  const result = await generate(settings, composePrompt(settings.stylePrompt, instruction, context, currentBody))
   return stripMetaCommentary(result)
 }
 
@@ -71,17 +98,11 @@ export async function suggestSubject(settings: OllamaSettings, context: string, 
   if (!context.trim() && !body.trim()) {
     throw new Error('Escribí algo en el cuerpo para poder sugerir un asunto.')
   }
-  const result = await generate(settings.baseUrl, settings.model, subjectPrompt(settings.stylePrompt, context, body))
+  const result = await generate(settings, subjectPrompt(settings.stylePrompt, context, body))
   return cleanupSubject(result)
 }
 
-// El digest de emails que arma el Asistente puede ser bastante largo (varios hilos con
-// adjuntos incluidos) — sin subir num_ctx, Ollama lo trunca en silencio contra la ventana
-// de contexto por defecto del modelo (a veces solo 2K-4K tokens) y el modelo termina
-// "sin ver" la mayor parte de los correos.
-const ASSISTANT_NUM_CTX = 24576
-
 export async function answerFreeform(settings: OllamaSettings, prompt: string): Promise<string> {
-  const result = await generate(settings.baseUrl, settings.model, prompt, ASSISTANT_NUM_CTX)
+  const result = await generate(settings, prompt)
   return stripMetaCommentary(result)
 }

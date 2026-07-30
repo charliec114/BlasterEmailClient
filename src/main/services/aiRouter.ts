@@ -25,7 +25,7 @@ function buildSettings(provider: AiProvider): unknown {
   const stylePrompt = settings.aiStylePrompt || ''
 
   if (provider === 'ollama') {
-    return { baseUrl: settings.ollamaBaseUrl || 'http://localhost:11434', model: settings.ollamaModel || '', stylePrompt }
+    return { baseUrl: settings.ollamaBaseUrl || 'http://localhost:11434/v1', model: settings.ollamaModel || '', stylePrompt }
   }
   if (provider === 'openai') {
     return { apiKey: getApiKey('openai') || '', model: settings.openaiModel || '', stylePrompt }
