@@ -8,6 +8,7 @@ import type { Account, AccountInput, AccountProtocol, ConnectionTestResult } fro
 const ACCOUNT_COLORS = ['#0a84ff', '#ff9f0a', '#30d158', '#ff375f', '#bf5af2', '#64d2ff']
 
 interface FormState {
+  label: string
   displayName: string
   email: string
   protocol: AccountProtocol
@@ -32,6 +33,7 @@ function defaultIncomingPort(protocol: AccountProtocol, secure: boolean): string
 
 function emptyForm(): FormState {
   return {
+    label: '',
     displayName: '',
     email: '',
     protocol: 'imap',
@@ -55,6 +57,7 @@ function formFromAccount(account: Account): FormState {
     account.incoming.host === account.outgoing.host && account.incoming.username === account.outgoing.username
 
   return {
+    label: account.label,
     displayName: account.displayName,
     email: account.email,
     protocol: account.protocol,
@@ -136,6 +139,7 @@ export default function AccountWizard({ editingAccount, onClose }: AccountWizard
 
   function buildInput(): AccountInput {
     return {
+      label: form.label || form.displayName || form.email,
       displayName: form.displayName || form.email,
       email: form.email,
       protocol: form.protocol,
@@ -282,11 +286,20 @@ export default function AccountWizard({ editingAccount, onClose }: AccountWizard
 
         <div className="form-grid">
           <label>
+            {t('accountWizard.label')}
+            <input
+              value={form.label}
+              onChange={(e) => update('label', e.target.value)}
+              placeholder="Trabajo"
+            />
+          </label>
+
+          <label>
             {t('accountWizard.displayName')}
             <input
               value={form.displayName}
               onChange={(e) => update('displayName', e.target.value)}
-              placeholder="Juan Pérez (Trabajo)"
+              placeholder="Juan Pérez"
             />
           </label>
 

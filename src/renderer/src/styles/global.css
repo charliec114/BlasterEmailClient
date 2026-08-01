@@ -1462,6 +1462,10 @@ html::-webkit-scrollbar,
   position: relative;
 }
 
+.address-input input {
+  width: 100%;
+}
+
 .address-suggestions {
   position: absolute;
   top: calc(100% + 2px);

@@ -29,7 +29,7 @@ export async function sendMail(input: SendMailInput): Promise<void> {
   const html = signatureHtml ? `${textToHtml(input.bodyText)}<br><br>${signatureHtml}` : undefined
 
   const mailOptions = {
-    from: account.email,
+    from: { name: account.displayName, address: account.email },
     to: input.to,
     cc: input.cc.length ? input.cc : undefined,
     bcc: input.bcc.length ? input.bcc : undefined,

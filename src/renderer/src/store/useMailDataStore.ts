@@ -84,7 +84,7 @@ export const useMailDataStore = create<MailDataStore>((set, get) => ({
         if (settings.notificationsEnabled) {
           const account = useAccountStore.getState().accounts.find((a) => a.id === accountId)
           const senderName = await latestUnreadSender(accountId, get().foldersByAccount[accountId] ?? [])
-          notifyNewMail(newCount, account?.displayName, senderName)
+          notifyNewMail(newCount, account?.label, senderName)
         }
       }
     } finally {

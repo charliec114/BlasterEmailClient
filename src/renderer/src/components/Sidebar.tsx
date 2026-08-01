@@ -234,7 +234,7 @@ export default function Sidebar() {
                   {collapsed ? '▸' : '▾'}
                 </button>
                 <span className="account-dot" style={{ backgroundColor: account.color }} />
-                <span className="account-name-text">{account.displayName}</span>
+                <span className="account-name-text">{account.label}</span>
                 <button
                   type="button"
                   className="edit-account-btn"

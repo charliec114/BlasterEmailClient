@@ -129,6 +129,7 @@ export function getDb(): Database.Database {
   ensureColumn(db, 'accounts', 'auth_type', "TEXT NOT NULL DEFAULT 'password'")
   ensureColumn(db, 'accounts', 'oauth_provider', 'TEXT')
   ensureColumn(db, 'accounts', 'oauth_refresh_token_enc', 'BLOB')
+  ensureColumn(db, 'accounts', 'label', 'TEXT')
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS api_keys (

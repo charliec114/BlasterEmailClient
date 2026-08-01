@@ -90,7 +90,7 @@ export default function ContactsModal({ onClose }: ContactsModalProps) {
                   <input
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    placeholder={t('accountWizard.displayName')}
+                    placeholder={t('contactsModal.namePlaceholder')}
                   />
                   <input
                     type="email"

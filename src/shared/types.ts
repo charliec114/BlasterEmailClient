@@ -9,6 +9,7 @@ export interface ServerConfig {
 }
 
 export interface AccountInput {
+  label: string
   displayName: string
   email: string
   protocol: AccountProtocol
@@ -20,6 +21,7 @@ export interface AccountInput {
 
 export interface Account {
   id: string
+  label: string
   displayName: string
   email: string
   protocol: AccountProtocol

@@ -7,6 +7,7 @@ const ACCOUNT_COLORS = ['#0a84ff', '#ff9f0a', '#30d158', '#ff375f', '#bf5af2', '
 
 interface AccountRow {
   id: string
+  label: string | null
   display_name: string
   email: string
   protocol: AccountProtocol
@@ -31,6 +32,7 @@ interface AccountRow {
 function rowToAccount(row: AccountRow): Account {
   return {
     id: row.id,
+    label: row.label || row.display_name,
     displayName: row.display_name,
     email: row.email,
     protocol: row.protocol,
@@ -114,12 +116,12 @@ export function addAccount(input: AccountInput): Account {
   getDb()
     .prepare(
       `INSERT INTO accounts (
-        id, display_name, email, protocol, color, signature_html,
+        id, label, display_name, email, protocol, color, signature_html,
         incoming_host, incoming_port, incoming_secure, incoming_username, incoming_password_enc,
         outgoing_host, outgoing_port, outgoing_secure, outgoing_username, outgoing_password_enc,
         created_at
       ) VALUES (
-        @id, @displayName, @email, @protocol, @color, @signatureHtml,
+        @id, @label, @displayName, @email, @protocol, @color, @signatureHtml,
         @incomingHost, @incomingPort, @incomingSecure, @incomingUsername, @incomingPasswordEnc,
         @outgoingHost, @outgoingPort, @outgoingSecure, @outgoingUsername, @outgoingPasswordEnc,
         @createdAt
@@ -127,6 +129,7 @@ export function addAccount(input: AccountInput): Account {
     )
     .run({
       id,
+      label: input.label || input.displayName,
       displayName: input.displayName,
       email: input.email,
       protocol: input.protocol,
@@ -156,6 +159,7 @@ export function updateAccount(id: string, input: AccountInput): Account {
   getDb()
     .prepare(
       `UPDATE accounts SET
+        label = @label,
         display_name = @displayName,
         email = @email,
         protocol = @protocol,
@@ -175,6 +179,7 @@ export function updateAccount(id: string, input: AccountInput): Account {
     )
     .run({
       id,
+      label: input.label || input.displayName,
       displayName: input.displayName,
       email: input.email,
       protocol: input.protocol,
@@ -230,12 +235,12 @@ export function addGoogleAccount(email: string, name: string, refreshToken: stri
   getDb()
     .prepare(
       `INSERT INTO accounts (
-        id, display_name, email, protocol, color, signature_html,
+        id, label, display_name, email, protocol, color, signature_html,
         incoming_host, incoming_port, incoming_secure, incoming_username, incoming_password_enc,
         outgoing_host, outgoing_port, outgoing_secure, outgoing_username, outgoing_password_enc,
         auth_type, oauth_provider, oauth_refresh_token_enc, created_at
       ) VALUES (
-        @id, @displayName, @email, 'imap', @color, '',
+        @id, @label, @displayName, @email, 'imap', @color, '',
         'imap.gmail.com', 993, 1, @email, @emptyPassword,
         'smtp.gmail.com', 465, 1, @email, @emptyPassword,
         'oauth', 'google', @refreshTokenEnc, @createdAt
@@ -243,6 +248,7 @@ export function addGoogleAccount(email: string, name: string, refreshToken: stri
     )
     .run({
       id,
+      label: name,
       displayName: name,
       email,
       color,

@@ -48,7 +48,8 @@ const es = {
 
   'accountWizard.editTitle': 'Editar cuenta',
   'accountWizard.addTitle': 'Agregar cuenta',
-  'accountWizard.displayName': 'Nombre para mostrar',
+  'accountWizard.label': 'Nombre de la cuenta (para identificarla en la lista)',
+  'accountWizard.displayName': 'Nombre para mostrar (remitente en los emails que enviás)',
   'accountWizard.email': 'Email',
   'accountWizard.incomingServer': 'Servidor entrante ({{protocol}})',
   'accountWizard.host': 'Host',
@@ -100,6 +101,7 @@ const es = {
   'composeModal.sending': 'Enviando...',
 
   'contactsModal.title': 'Contactos',
+  'contactsModal.namePlaceholder': 'Nombre',
   'contactsModal.empty': 'Todavía no hay contactos guardados — van apareciendo a medida que recibís o enviás correo.',
   'contactsModal.newMessage': '✏️ Nuevo mensaje',
   'contactsModal.editContact': 'Editar contacto',
@@ -219,7 +221,8 @@ const en: Record<TranslationKey, string> = {
 
   'accountWizard.editTitle': 'Edit account',
   'accountWizard.addTitle': 'Add account',
-  'accountWizard.displayName': 'Display name',
+  'accountWizard.label': 'Account name (to identify it in the list)',
+  'accountWizard.displayName': 'Display name (sender name on emails you send)',
   'accountWizard.email': 'Email',
   'accountWizard.incomingServer': 'Incoming server ({{protocol}})',
   'accountWizard.host': 'Host',
@@ -271,6 +274,7 @@ const en: Record<TranslationKey, string> = {
   'composeModal.sending': 'Sending...',
 
   'contactsModal.title': 'Contacts',
+  'contactsModal.namePlaceholder': 'Name',
   'contactsModal.empty': "No contacts saved yet — they'll show up as you receive or send mail.",
   'contactsModal.newMessage': '✏️ New message',
   'contactsModal.editContact': 'Edit contact',

@@ -145,7 +145,7 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
               <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
-                    {account.displayName} ({account.email})
+                    {account.label} ({account.email})
                   </option>
                 ))}
               </select>

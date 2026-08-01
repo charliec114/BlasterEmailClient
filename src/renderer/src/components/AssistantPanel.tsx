@@ -67,7 +67,7 @@ export default function AssistantPanel() {
     if (isAllSelected) return t('assistantPanel.allAccounts')
     if (conversation.accountIds.length === 1) {
       const account = accounts.find((a) => a.id === conversation.accountIds[0])
-      if (account) return account.displayName
+      if (account) return account.label
     }
     return t('assistantPanel.accountsSelectedCount', { count: String(conversation.accountIds.length) })
   }
@@ -154,7 +154,7 @@ export default function AssistantPanel() {
                       {accounts.map((account) => (
                         <label key={account.id} className="assistant-account-checkbox">
                           <input type="checkbox" checked={isAccountChecked(account.id)} onChange={() => toggleAccount(account.id)} />
-                          {account.displayName}
+                          {account.label}
                         </label>
                       ))}
                     </div>
