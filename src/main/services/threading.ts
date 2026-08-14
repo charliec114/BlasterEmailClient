@@ -19,6 +19,7 @@ export interface ThreadableMessage {
   messageId: string
   inReplyTo: string | null
   references: string[]
+  subject: string
 }
 
 // Busca en toda la cuenta (no solo en la carpeta actual) para que, por ejemplo,
@@ -46,7 +47,12 @@ export function computeThreadKey(
     if (match) return match.thread_key
   }
 
-  if (subjectNorm) {
+  // El fallback por asunto sólo tiene sentido para respuestas/reenvíos (el cliente de origen
+  // no mandó In-Reply-To/References pero sí prefijó "Re:"/"Fwd:"). Si el asunto es nuevo (sin
+  // prefijo), no hay que unirlo a un hilo viejo con el mismo texto — si no, dos conversaciones
+  // sin relación que casualmente comparten asunto (ej: mails de prueba tipo "hola mundo")
+  // terminan fusionadas, y el hilo viejo salta arriba de todo con la fecha del mensaje nuevo.
+  if (subjectNorm && SUBJECT_PREFIX.test(message.subject)) {
     const cutoff = new Date(new Date(currentDate).getTime() - SUBJECT_FALLBACK_WINDOW_MS).toISOString()
     const match = db
       .prepare(
@@ -69,7 +75,7 @@ export function computeThreadKey(
 export function rethreadAccount(db: Database.Database, accountId: string): void {
   const rows = db
     .prepare(
-      `SELECT id, message_id, in_reply_to, refs_json, subject_norm, date
+      `SELECT id, message_id, in_reply_to, refs_json, subject, subject_norm, date
        FROM messages WHERE account_id = ? ORDER BY date ASC, id ASC`
     )
     .all(accountId) as {
@@ -77,6 +83,7 @@ export function rethreadAccount(db: Database.Database, accountId: string): void 
     message_id: string
     in_reply_to: string | null
     refs_json: string | null
+    subject: string
     subject_norm: string
     date: string
   }[]
@@ -85,7 +92,8 @@ export function rethreadAccount(db: Database.Database, accountId: string): void 
     const message: ThreadableMessage = {
       messageId: row.message_id,
       inReplyTo: row.in_reply_to,
-      references: row.refs_json ? JSON.parse(row.refs_json) : []
+      references: row.refs_json ? JSON.parse(row.refs_json) : [],
+      subject: row.subject
     }
     const threadKey = computeThreadKey(db, accountId, message, row.subject_norm, row.date, row.id)
     db.prepare('UPDATE messages SET thread_key = ? WHERE id = ?').run(threadKey, row.id)
