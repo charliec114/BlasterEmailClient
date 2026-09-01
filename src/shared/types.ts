@@ -152,6 +152,7 @@ export interface SendMailInput {
   bcc: string[]
   subject: string
   bodyText: string
+  bodyHtml?: string
   inReplyTo?: string
   references?: string[]
   attachments: AttachmentRef[]

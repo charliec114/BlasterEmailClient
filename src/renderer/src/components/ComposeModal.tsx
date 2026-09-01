@@ -4,8 +4,10 @@ import { useMailDataStore } from '../store/useMailDataStore'
 import { useComposeStore, type ComposeDraft } from '../store/useComposeStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { playSentMailSound } from '../lib/sound'
+import { textToEditorHtml, htmlToPlainText } from '../lib/richText'
 import EmailBodyFrame from './EmailBodyFrame'
 import AddressInput from './AddressInput'
+import RichTextEditor from './RichTextEditor'
 import { useT } from '../i18n/useT'
 import type { AttachmentRef } from '@shared/types'
 
@@ -41,7 +43,8 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
   const [cc, setCc] = useState(draft.cc ?? '')
   const [bcc, setBcc] = useState('')
   const [subject, setSubject] = useState(draft.subject ?? '')
-  const [body, setBody] = useState(draft.body ?? '')
+  const [body, setBody] = useState(() => textToEditorHtml(draft.body ?? ''))
+  const [bodyVersion, setBodyVersion] = useState(0)
   const [sending, setSending] = useState(false)
   const [assisting, setAssisting] = useState(false)
   const [previousBody, setPreviousBody] = useState<string | null>(null)
@@ -49,11 +52,16 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
   const [assistingSubject, setAssistingSubject] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  function setBodyExternally(html: string): void {
+    setBody(html)
+    setBodyVersion((v) => v + 1)
+  }
+
   async function handleSuggestSubject(): Promise<void> {
     setAssistingSubject(true)
     setError(null)
     try {
-      const result = await window.api.ollama.suggestSubject(draft.context ?? '', body)
+      const result = await window.api.ollama.suggestSubject(draft.context ?? '', htmlToPlainText(body))
       setSubject(result)
     } catch (err) {
       setError(errorMessage(err))
@@ -87,9 +95,9 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
     setAssisting(true)
     setError(null)
     try {
-      const result = await window.api.ollama.composeAssist(instruction, draft.context ?? '', body)
+      const result = await window.api.ollama.composeAssist(instruction, draft.context ?? '', htmlToPlainText(body))
       setPreviousBody(snapshot)
-      setBody(result)
+      setBodyExternally(textToEditorHtml(result))
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -99,7 +107,7 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
 
   function handleUndoAssist(): void {
     if (previousBody === null) return
-    setBody(previousBody)
+    setBodyExternally(previousBody)
     setPreviousBody(null)
   }
 
@@ -113,7 +121,8 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
         cc: parseAddresses(cc),
         bcc: parseAddresses(bcc),
         subject,
-        bodyText: body,
+        bodyText: htmlToPlainText(body),
+        bodyHtml: body,
         inReplyTo: draft.inReplyTo,
         references: draft.references,
         attachments
@@ -182,7 +191,7 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
               <button
                 type="button"
                 className="ai-inline-btn"
-                disabled={assistingSubject || (!body.trim() && !draft.context)}
+                disabled={assistingSubject || (!htmlToPlainText(body) && !draft.context)}
                 onClick={handleSuggestSubject}
               >
                 {assistingSubject ? t('composeModal.suggestingSubject') : t('composeModal.suggestSubject')}
@@ -206,7 +215,7 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
               <button
                 type="button"
                 className="ai-inline-btn"
-                disabled={assisting || !body.trim()}
+                disabled={assisting || !htmlToPlainText(body)}
                 onClick={() => handleAssist('improve')}
               >
                 {t('composeModal.improveWriting')}
@@ -218,7 +227,7 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
               )}
               {assisting && <span className="ai-inline-status">{t('composeModal.writing')}</span>}
             </div>
-            <textarea className="compose-body" value={body} onChange={(e) => setBody(e.target.value)} rows={14} />
+            <RichTextEditor key={bodyVersion} value={body} onChange={setBody} disabled={assisting} />
           </label>
 
           <div className="attachments-section">

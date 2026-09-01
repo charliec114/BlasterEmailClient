@@ -25,8 +25,9 @@ export async function sendMail(input: SendMailInput): Promise<void> {
   const smtpAuth = await resolveSmtpAuth(account)
 
   const signatureHtml = account.signatureHtml.trim()
+  const bodyHtml = input.bodyHtml ?? textToHtml(input.bodyText)
   const text = signatureHtml ? `${input.bodyText}\n\n--\n${stripHtml(signatureHtml)}` : input.bodyText
-  const html = signatureHtml ? `${textToHtml(input.bodyText)}<br><br>${signatureHtml}` : undefined
+  const html = signatureHtml ? `${bodyHtml}<br><br>${signatureHtml}` : bodyHtml
 
   const mailOptions = {
     from: { name: account.displayName, address: account.email },
