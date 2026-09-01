@@ -609,6 +609,15 @@ html::-webkit-scrollbar,
   user-select: text;
 }
 
+.message-card-preview {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .attachment-chip-list {
   display: flex;
   flex-wrap: wrap;

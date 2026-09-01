@@ -70,8 +70,12 @@ export function computeThreadKey(
 }
 
 // Recalcula thread_key para todos los mensajes de una cuenta con el algoritmo cross-folder.
-// Corre después de cada sync: barato a esta escala y autocorrige datos ya sincronizados
+// Corre solo cuando llegó mail nuevo (ver syncService) — autocorrige datos ya sincronizados
 // con una versión anterior del algoritmo (que agrupaba solo dentro de una misma carpeta).
+// Todo el barrido va en una sola transacción: sin esto, cada UPDATE hace su propio commit
+// (fsync/checkpoint de WAL incluido), lo que en una cuenta de miles de mensajes bloquea el
+// proceso principal — y con él, toda la ventana — el tiempo suficiente como para que el SO
+// muestre el diálogo de "no responde".
 export function rethreadAccount(db: Database.Database, accountId: string): void {
   const rows = db
     .prepare(
@@ -88,14 +92,20 @@ export function rethreadAccount(db: Database.Database, accountId: string): void 
     date: string
   }[]
 
-  for (const row of rows) {
-    const message: ThreadableMessage = {
-      messageId: row.message_id,
-      inReplyTo: row.in_reply_to,
-      references: row.refs_json ? JSON.parse(row.refs_json) : [],
-      subject: row.subject
+  const updateThreadKey = db.prepare('UPDATE messages SET thread_key = ? WHERE id = ?')
+
+  const applyAll = db.transaction(() => {
+    for (const row of rows) {
+      const message: ThreadableMessage = {
+        messageId: row.message_id,
+        inReplyTo: row.in_reply_to,
+        references: row.refs_json ? JSON.parse(row.refs_json) : [],
+        subject: row.subject
+      }
+      const threadKey = computeThreadKey(db, accountId, message, row.subject_norm, row.date, row.id)
+      updateThreadKey.run(threadKey, row.id)
     }
-    const threadKey = computeThreadKey(db, accountId, message, row.subject_norm, row.date, row.id)
-    db.prepare('UPDATE messages SET thread_key = ? WHERE id = ?').run(threadKey, row.id)
-  }
+  })
+
+  applyAll()
 }

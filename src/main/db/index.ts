@@ -82,6 +82,7 @@ export function getDb(): Database.Database {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_message_id ON messages(account_id, folder_id, message_id)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_account_thread ON messages(account_id, thread_key)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_account_message_id ON messages(account_id, message_id)`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_account_date ON messages(account_id, date)`)
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (

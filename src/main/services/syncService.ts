@@ -4,19 +4,19 @@ import { markSeenOnImapServer, syncImapAccount } from './imapSync'
 import { syncPop3Account } from './pop3Sync'
 import { getFolderRemotePath, markFolderReadLocal, markThreadReadLocal } from './mailRepository'
 import { rethreadAccount } from './threading'
-import { backfillContactsFromMessages } from './contactsRepository'
 
 export async function syncAccount(accountId: string): Promise<void> {
   const account = getAccountById(accountId)
 
-  if (account.protocol === 'imap') {
-    await syncImapAccount(account)
-  } else {
-    await syncPop3Account(account)
-  }
+  const newMessageCount =
+    account.protocol === 'imap' ? await syncImapAccount(account) : await syncPop3Account(account)
 
-  rethreadAccount(getDb(), accountId)
-  backfillContactsFromMessages()
+  // Re-threadear barre toda la cuenta (ver threading.ts) — sólo vale la pena pagar ese costo
+  // cuando efectivamente llegó mail nuevo. La mayoría de los syncs automáticos (cada 5 min,
+  // sin nada nuevo) ahora no tocan la base para nada.
+  if (newMessageCount > 0) {
+    rethreadAccount(getDb(), accountId)
+  }
 }
 
 export async function markThreadRead(accountId: string, folderId: string, threadKey: string): Promise<void> {

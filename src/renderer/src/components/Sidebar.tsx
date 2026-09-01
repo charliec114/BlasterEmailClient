@@ -79,7 +79,13 @@ export default function Sidebar() {
   }, [fetchAccounts])
 
   const syncAllAccounts = useCallback(async () => {
-    await Promise.all(accounts.map((account) => syncAccountData(account.id)))
+    // Secuencial, no Promise.all: cada sync hace trabajo síncrono pesado en el proceso
+    // principal (SQLite), así que sincronizar todas las cuentas "en paralelo" solo las
+    // amontona una atrás de la otra igual — pero de a una, la ventana puede seguir
+    // respondiendo entre cuenta y cuenta en vez de acumular todo el bloqueo junto.
+    for (const account of accounts) {
+      await syncAccountData(account.id)
+    }
     fetchScheduledMail()
     const current = useMailStore.getState()
     if (current.selectedFolderId === UNIFIED_INBOX_ID) {

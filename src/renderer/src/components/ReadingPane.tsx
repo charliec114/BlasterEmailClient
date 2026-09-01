@@ -15,6 +15,11 @@ function quote(text: string): string {
     .join('\n')
 }
 
+function previewText(bodyText: string): string {
+  const collapsed = bodyText.replace(/\s+/g, ' ').trim()
+  return collapsed.length > 140 ? `${collapsed.slice(0, 140)}…` : collapsed
+}
+
 function dedupeExcluding(participants: Participant[], ownEmail: string): Participant[] {
   const seen = new Set<string>()
   const result: Participant[] = []
@@ -48,6 +53,15 @@ export default function ReadingPane() {
       markThreadRead(foundThread.accountId, foundThread.folderId, foundThread.id)
     }
   }, [foundThread, markThreadRead])
+
+  // Solo el último mensaje arranca expandido (renderiza su cuerpo/EmailBodyFrame) — los
+  // anteriores quedan colapsados para no pagar el costo de parsear/montar un iframe por
+  // mensaje en hilos largos apenas se abren.
+  useEffect(() => {
+    if (!foundThread || foundThread.messages.length === 0) return
+    setExpandedIds(new Set([foundThread.messages[foundThread.messages.length - 1].id]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [foundThread?.id])
 
   if (!foundThread) {
     return (
@@ -197,7 +211,13 @@ export default function ReadingPane() {
                 )}
               </div>
             </div>
-            <MessageBody message={message} />
+            {expandedIds.has(message.id) ? (
+              <MessageBody message={message} />
+            ) : (
+              <div className="message-card-preview" onClick={() => toggleExpanded(message.id)}>
+                {previewText(message.bodyText)}
+              </div>
+            )}
           </article>
         ))}
       </div>

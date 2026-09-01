@@ -41,6 +41,10 @@ export function upsertContact(email: string, name: string | null, interactionDat
   ).run(name || existing.name, lastInteractionAt, existing.id)
 }
 
+// Se llama una sola vez al arrancar la app (no en cada sync — insertMessage ya hace upsert
+// de contacto por cada mensaje nuevo). Esto es solo para completar contactos de mensajes que
+// ya estaban en la base antes de que existiera esa lógica. Todo el barrido va en una única
+// transacción para no pagar un commit de SQLite por cada remitente distinto.
 export function backfillContactsFromMessages(): void {
   const db = getDb()
   const rows = db
@@ -51,20 +55,24 @@ export function backfillContactsFromMessages(): void {
     )
     .all() as { from_email: string; from_name: string | null; last_date: string; cnt: number }[]
 
-  for (const row of rows) {
-    const normalizedEmail = row.from_email.trim().toLowerCase()
-    const existing = db.prepare('SELECT id, interaction_count FROM contacts WHERE email = ?').get(normalizedEmail) as
-      | { id: string; interaction_count: number }
-      | undefined
+  const applyAll = db.transaction(() => {
+    for (const row of rows) {
+      const normalizedEmail = row.from_email.trim().toLowerCase()
+      const existing = db.prepare('SELECT id, interaction_count FROM contacts WHERE email = ?').get(normalizedEmail) as
+        | { id: string; interaction_count: number }
+        | undefined
 
-    if (!existing) {
-      db.prepare(
-        'INSERT INTO contacts (id, email, name, last_interaction_at, interaction_count) VALUES (?, ?, ?, ?, ?)'
-      ).run(randomUUID(), normalizedEmail, row.from_name || null, row.last_date, row.cnt)
-    } else if (existing.interaction_count < row.cnt) {
-      db.prepare('UPDATE contacts SET interaction_count = ? WHERE id = ?').run(row.cnt, existing.id)
+      if (!existing) {
+        db.prepare(
+          'INSERT INTO contacts (id, email, name, last_interaction_at, interaction_count) VALUES (?, ?, ?, ?, ?)'
+        ).run(randomUUID(), normalizedEmail, row.from_name || null, row.last_date, row.cnt)
+      } else if (existing.interaction_count < row.cnt) {
+        db.prepare('UPDATE contacts SET interaction_count = ? WHERE id = ?').run(row.cnt, existing.id)
+      }
     }
-  }
+  })
+
+  applyAll()
 }
 
 export function searchContacts(query: string, limit = 8): Contact[] {

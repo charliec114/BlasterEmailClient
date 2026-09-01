@@ -12,6 +12,7 @@ import { registerAppIpc } from './ipc/app'
 import { registerPendingIpc } from './ipc/pending'
 import { registerScheduledMailIpc } from './ipc/scheduledMail'
 import { startScheduledMailWatcher } from './services/scheduleService'
+import { backfillContactsFromMessages } from './services/contactsRepository'
 import { setMainWindow } from './windowManager'
 
 function createWindow(): void {
@@ -76,6 +77,14 @@ app.whenReady().then(() => {
   registerScheduledMailIpc()
 
   startScheduledMailWatcher()
+
+  // Completa contactos de mensajes que ya estaban en la base antes de esta funcionalidad.
+  // Una sola vez por arranque de la app, no en cada sync (ver syncService.ts).
+  try {
+    backfillContactsFromMessages()
+  } catch (error) {
+    console.error('No se pudieron completar los contactos existentes:', error)
+  }
 
   createWindow()
 

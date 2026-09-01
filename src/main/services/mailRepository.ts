@@ -152,7 +152,7 @@ export function insertMessage(
   parsed: ParsedMessage,
   isRead: boolean,
   isFlagged: boolean
-): void {
+): boolean {
   const db = getDb()
   const subjectNorm = normalizeSubject(parsed.subject)
   const threadKey = computeThreadKey(db, accountId, parsed, subjectNorm, parsed.date)
@@ -205,6 +205,8 @@ export function insertMessage(
   if (parsed.fromEmail) {
     upsertContact(parsed.fromEmail, parsed.fromName, parsed.date)
   }
+
+  return insertResult.changes > 0
 }
 
 export function getAttachmentContent(
