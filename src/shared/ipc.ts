@@ -31,5 +31,9 @@ export const IPC = {
   contactsRemove: 'contacts:remove',
   contactsUpdate: 'contacts:update',
   dialogPickFiles: 'dialog:pick-files',
-  pendingAsk: 'pending:ask'
+  pendingAsk: 'pending:ask',
+  scheduledMailList: 'scheduled-mail:list',
+  scheduledMailCreate: 'scheduled-mail:create',
+  scheduledMailCancel: 'scheduled-mail:cancel',
+  scheduledMailSendNow: 'scheduled-mail:send-now'
 } as const

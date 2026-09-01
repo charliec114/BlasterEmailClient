@@ -138,5 +138,26 @@ export function getDb(): Database.Database {
     )
   `)
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS scheduled_messages (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL,
+      to_json TEXT NOT NULL,
+      cc_json TEXT NOT NULL,
+      bcc_json TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      body_text TEXT NOT NULL,
+      body_html TEXT,
+      in_reply_to TEXT,
+      references_json TEXT,
+      attachments_json TEXT NOT NULL,
+      scheduled_for TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      error TEXT,
+      created_at TEXT NOT NULL
+    )
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_scheduled_messages_status ON scheduled_messages(status, scheduled_for)`)
+
   return db
 }

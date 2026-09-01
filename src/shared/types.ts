@@ -157,3 +157,16 @@ export interface SendMailInput {
   references?: string[]
   attachments: AttachmentRef[]
 }
+
+export type ScheduledMailStatus = 'pending' | 'sent' | 'failed' | 'canceled'
+
+export interface ScheduleMailInput extends SendMailInput {
+  scheduledFor: string
+}
+
+export interface ScheduledMail extends ScheduleMailInput {
+  id: string
+  status: ScheduledMailStatus
+  error?: string | null
+  createdAt: string
+}

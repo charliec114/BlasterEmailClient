@@ -28,6 +28,28 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function tomorrowAt(hour: number): Date {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  d.setHours(hour, 0, 0, 0)
+  return d
+}
+
+function nextMondayAt(hour: number): Date {
+  const d = new Date()
+  const diff = (8 - d.getDay()) % 7 || 7
+  d.setDate(d.getDate() + diff)
+  d.setHours(hour, 0, 0, 0)
+  return d
+}
+
+function minDateTimeLocal(): string {
+  const d = new Date(Date.now() + 60_000)
+  d.setSeconds(0, 0)
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 interface ComposeModalProps {
   draft: ComposeDraft
 }
@@ -39,18 +61,21 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
 
   const [accountId, setAccountId] = useState(draft.accountId)
   const [to, setTo] = useState(draft.to ?? '')
-  const [showCc, setShowCc] = useState(Boolean(draft.cc))
+  const [showCc, setShowCc] = useState(Boolean(draft.cc) || Boolean(draft.bcc))
   const [cc, setCc] = useState(draft.cc ?? '')
-  const [bcc, setBcc] = useState('')
+  const [bcc, setBcc] = useState(draft.bcc ?? '')
   const [subject, setSubject] = useState(draft.subject ?? '')
-  const [body, setBody] = useState(() => textToEditorHtml(draft.body ?? ''))
+  const [body, setBody] = useState(() => draft.bodyHtml ?? textToEditorHtml(draft.body ?? ''))
   const [bodyVersion, setBodyVersion] = useState(0)
   const [sending, setSending] = useState(false)
   const [assisting, setAssisting] = useState(false)
   const [previousBody, setPreviousBody] = useState<string | null>(null)
-  const [attachments, setAttachments] = useState<AttachmentRef[]>([])
+  const [attachments, setAttachments] = useState<AttachmentRef[]>(draft.attachments ?? [])
   const [assistingSubject, setAssistingSubject] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showSchedule, setShowSchedule] = useState(false)
+  const [customDateTime, setCustomDateTime] = useState('')
+  const [scheduling, setScheduling] = useState(false)
 
   function setBodyExternally(html: string): void {
     setBody(html)
@@ -134,6 +159,36 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
       setError(errorMessage(err))
     } finally {
       setSending(false)
+    }
+  }
+
+  async function handleSchedule(scheduledFor: Date): Promise<void> {
+    if (scheduledFor.getTime() <= Date.now()) {
+      setError(t('composeModal.scheduleInPast'))
+      return
+    }
+    setScheduling(true)
+    setError(null)
+    try {
+      await window.api.scheduledMail.create({
+        accountId,
+        to: parseAddresses(to),
+        cc: parseAddresses(cc),
+        bcc: parseAddresses(bcc),
+        subject,
+        bodyText: htmlToPlainText(body),
+        bodyHtml: body,
+        inReplyTo: draft.inReplyTo,
+        references: draft.references,
+        attachments,
+        scheduledFor: scheduledFor.toISOString()
+      })
+      setShowSchedule(false)
+      closeCompose()
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setScheduling(false)
     }
   }
 
@@ -268,9 +323,59 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
           <button type="button" className="reply-btn" onClick={closeCompose}>
             {t('common.cancel')}
           </button>
-          <button type="button" className="reply-btn ai-btn" disabled={!isValid || sending} onClick={handleSend}>
-            {sending ? t('composeModal.sending') : t('composeModal.send')}
-          </button>
+          <div className="send-split-btn">
+            <button
+              type="button"
+              className="reply-btn ai-btn send-main-btn"
+              disabled={!isValid || sending || scheduling}
+              onClick={handleSend}
+            >
+              {sending ? t('composeModal.sending') : t('composeModal.send')}
+            </button>
+            <button
+              type="button"
+              className="reply-btn ai-btn send-caret-btn"
+              disabled={!isValid || sending || scheduling}
+              title={t('composeModal.scheduleSend')}
+              onClick={() => setShowSchedule((v) => !v)}
+            >
+              ▾
+            </button>
+            {showSchedule && (
+              <>
+                <div className="schedule-menu-overlay" onClick={() => setShowSchedule(false)} />
+                <div className="schedule-menu">
+                  <button type="button" onClick={() => handleSchedule(tomorrowAt(8))}>
+                    {t('composeModal.scheduleTomorrowMorning')}
+                  </button>
+                  <button type="button" onClick={() => handleSchedule(tomorrowAt(13))}>
+                    {t('composeModal.scheduleTomorrowAfternoon')}
+                  </button>
+                  <button type="button" onClick={() => handleSchedule(nextMondayAt(8))}>
+                    {t('composeModal.scheduleMonday')}
+                  </button>
+                  <div className="schedule-menu-divider" />
+                  <label className="schedule-menu-custom">
+                    {t('composeModal.scheduleCustom')}
+                    <input
+                      type="datetime-local"
+                      value={customDateTime}
+                      min={minDateTimeLocal()}
+                      onChange={(e) => setCustomDateTime(e.target.value)}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="ai-inline-btn"
+                    disabled={!customDateTime}
+                    onClick={() => handleSchedule(new Date(customDateTime))}
+                  >
+                    {t('composeModal.scheduleConfirm')}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

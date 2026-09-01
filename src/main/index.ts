@@ -10,6 +10,8 @@ import { registerDialogIpc } from './ipc/dialog'
 import { registerApiKeysIpc } from './ipc/apiKeys'
 import { registerAppIpc } from './ipc/app'
 import { registerPendingIpc } from './ipc/pending'
+import { registerScheduledMailIpc } from './ipc/scheduledMail'
+import { startScheduledMailWatcher } from './services/scheduleService'
 import { setMainWindow } from './windowManager'
 
 function createWindow(): void {
@@ -71,6 +73,9 @@ app.whenReady().then(() => {
   registerApiKeysIpc()
   registerAppIpc()
   registerPendingIpc()
+  registerScheduledMailIpc()
+
+  startScheduledMailWatcher()
 
   createWindow()
 

@@ -10,6 +10,8 @@ import type {
   MailFolder,
   PendingAskInput,
   PendingAskResult,
+  ScheduleMailInput,
+  ScheduledMail,
   SendMailInput,
   StoredSummary,
   Thread,
@@ -79,6 +81,12 @@ const api = {
   },
   pending: {
     ask: (input: PendingAskInput): Promise<PendingAskResult> => ipcRenderer.invoke(IPC.pendingAsk, input)
+  },
+  scheduledMail: {
+    list: (): Promise<ScheduledMail[]> => ipcRenderer.invoke(IPC.scheduledMailList),
+    create: (input: ScheduleMailInput): Promise<ScheduledMail> => ipcRenderer.invoke(IPC.scheduledMailCreate, input),
+    cancel: (id: string): Promise<void> => ipcRenderer.invoke(IPC.scheduledMailCancel, id),
+    sendNow: (id: string): Promise<void> => ipcRenderer.invoke(IPC.scheduledMailSendNow, id)
   }
 }
 

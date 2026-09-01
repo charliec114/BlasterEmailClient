@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type DragEvent, type MouseEvent } from 'react'
 import { useAccountStore } from '../store/useAccountStore'
-import { useMailStore, UNIFIED_INBOX_ID, ASSISTANT_VIEW_ID } from '../store/useMailStore'
+import { useMailStore, UNIFIED_INBOX_ID, ASSISTANT_VIEW_ID, SCHEDULED_VIEW_ID } from '../store/useMailStore'
 import { useMailDataStore } from '../store/useMailDataStore'
+import { useScheduledMailStore } from '../store/useScheduledMailStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import AccountWizard from './AccountWizard'
 import SettingsModal from './SettingsModal'
@@ -48,6 +49,10 @@ export default function Sidebar() {
   const selectFolder = useMailStore((s) => s.selectFolder)
   const selectUnifiedInbox = useMailStore((s) => s.selectUnifiedInbox)
   const selectAssistantView = useMailStore((s) => s.selectAssistantView)
+  const selectScheduledView = useMailStore((s) => s.selectScheduledView)
+
+  const scheduledCount = useScheduledMailStore((s) => s.items.filter((item) => item.status === 'pending').length)
+  const fetchScheduledMail = useScheduledMailStore((s) => s.fetch)
 
   const sidebarOrder = useSettingsStore((s) => s.sidebarOrder)
   const setSidebarOrder = useSettingsStore((s) => s.setSidebarOrder)
@@ -75,13 +80,18 @@ export default function Sidebar() {
 
   const syncAllAccounts = useCallback(async () => {
     await Promise.all(accounts.map((account) => syncAccountData(account.id)))
+    fetchScheduledMail()
     const current = useMailStore.getState()
     if (current.selectedFolderId === UNIFIED_INBOX_ID) {
       fetchUnifiedInbox()
     } else if (current.selectedAccountId && current.selectedFolderId) {
       fetchThreads(current.selectedAccountId, current.selectedFolderId)
     }
-  }, [accounts, syncAccountData, fetchThreads, fetchUnifiedInbox])
+  }, [accounts, syncAccountData, fetchThreads, fetchUnifiedInbox, fetchScheduledMail])
+
+  useEffect(() => {
+    fetchScheduledMail()
+  }, [fetchScheduledMail])
 
   useEffect(() => {
     accounts.forEach((account) => {
@@ -170,6 +180,18 @@ export default function Sidebar() {
           >
             <span className="folder-icon">✨</span>
             <span className="folder-name">{t('sidebar.assistant')}</span>
+          </button>
+        </div>
+
+        <div className="sidebar-unified-row">
+          <button
+            type="button"
+            className={`sidebar-folder-btn ${selectedFolderId === SCHEDULED_VIEW_ID ? 'active' : ''}`}
+            onClick={selectScheduledView}
+          >
+            <span className="folder-icon">🕒</span>
+            <span className="folder-name">{t('sidebar.scheduled')}</span>
+            {scheduledCount > 0 && <span className="folder-badge">{scheduledCount}</span>}
           </button>
         </div>
 

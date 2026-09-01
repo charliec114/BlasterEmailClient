@@ -3,15 +3,18 @@ import Sidebar from './components/Sidebar'
 import MessageList from './components/MessageList'
 import ReadingPane from './components/ReadingPane'
 import AssistantPanel from './components/AssistantPanel'
+import ScheduledPanel from './components/ScheduledPanel'
 import ComposeModal from './components/ComposeModal'
 import { useComposeStore } from './store/useComposeStore'
 import { useSettingsStore } from './store/useSettingsStore'
-import { useMailStore, ASSISTANT_VIEW_ID } from './store/useMailStore'
+import { useMailStore, ASSISTANT_VIEW_ID, SCHEDULED_VIEW_ID } from './store/useMailStore'
 
 function App() {
   const draft = useComposeStore((s) => s.draft)
   const loadSettings = useSettingsStore((s) => s.loadSettings)
-  const isAssistantView = useMailStore((s) => s.selectedFolderId) === ASSISTANT_VIEW_ID
+  const selectedFolderId = useMailStore((s) => s.selectedFolderId)
+  const isAssistantView = selectedFolderId === ASSISTANT_VIEW_ID
+  const isScheduledView = selectedFolderId === SCHEDULED_VIEW_ID
 
   useEffect(() => {
     loadSettings()
@@ -22,6 +25,8 @@ function App() {
       <Sidebar />
       {isAssistantView ? (
         <AssistantPanel />
+      ) : isScheduledView ? (
+        <ScheduledPanel />
       ) : (
         <>
           <MessageList />

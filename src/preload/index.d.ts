@@ -8,6 +8,8 @@ import type {
   MailFolder,
   PendingAskInput,
   PendingAskResult,
+  ScheduleMailInput,
+  ScheduledMail,
   SendMailInput,
   StoredSummary,
   Thread,
@@ -67,6 +69,12 @@ interface BlasterApi {
   }
   pending: {
     ask: (input: PendingAskInput) => Promise<PendingAskResult>
+  }
+  scheduledMail: {
+    list: () => Promise<ScheduledMail[]>
+    create: (input: ScheduleMailInput) => Promise<ScheduledMail>
+    cancel: (id: string) => Promise<void>
+    sendNow: (id: string) => Promise<void>
   }
 }
 
