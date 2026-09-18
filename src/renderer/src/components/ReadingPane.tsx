@@ -41,12 +41,27 @@ export default function ReadingPane() {
   const threadsByFolder = useMailDataStore((s) => s.threadsByFolder)
   const unifiedInboxThreads = useMailDataStore((s) => s.unifiedInboxThreads)
   const searchResults = useMailDataStore((s) => s.searchResults)
+  const threadDetails = useMailDataStore((s) => s.threadDetails)
+  const fetchThreadDetail = useMailDataStore((s) => s.fetchThreadDetail)
   const markThreadRead = useMailDataStore((s) => s.markThreadRead)
   const openCompose = useComposeStore((s) => s.openCompose)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const foundThread =
     (isUnified ? unifiedInboxThreads : threadsByFolder[selectedFolderId ?? ''] ?? []).find((t) => t.id === selectedThreadId) ??
     searchResults.find((t) => t.id === selectedThreadId)
+
+  // Los hilos en threadsByFolder/unifiedInboxThreads/searchResults son livianos (sin el body
+  // de los mensajes, ver mailRepository.ts). Acá se pide el detalle completo del hilo abierto,
+  // y se vuelve a pedir si `lastMessageDate` cambió (llegó mail nuevo a este hilo mientras
+  // estaba abierto) aunque ya hubiera uno en cache.
+  const cachedDetail = foundThread ? threadDetails[foundThread.id] : undefined
+  const detailThread = cachedDetail && cachedDetail.lastMessageDate === foundThread?.lastMessageDate ? cachedDetail : undefined
+
+  useEffect(() => {
+    if (foundThread && !detailThread) {
+      fetchThreadDetail(foundThread.accountId, foundThread.id)
+    }
+  }, [foundThread, detailThread, fetchThreadDetail])
 
   useEffect(() => {
     if (foundThread && foundThread.hasUnread) {
@@ -58,10 +73,10 @@ export default function ReadingPane() {
   // anteriores quedan colapsados para no pagar el costo de parsear/montar un iframe por
   // mensaje en hilos largos apenas se abren.
   useEffect(() => {
-    if (!foundThread || foundThread.messages.length === 0) return
-    setExpandedIds(new Set([foundThread.messages[foundThread.messages.length - 1].id]))
+    if (!detailThread || detailThread.messages.length === 0) return
+    setExpandedIds(new Set([detailThread.messages[detailThread.messages.length - 1].id]))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [foundThread?.id])
+  }, [detailThread?.id])
 
   if (!foundThread) {
     return (
@@ -71,7 +86,23 @@ export default function ReadingPane() {
     )
   }
 
-  const thread = foundThread
+  if (!detailThread) {
+    return (
+      <section className="reading-pane">
+        <header className="reading-pane-header">
+          <h1>{foundThread.subject}</h1>
+          <div className="reading-pane-participants">
+            {t('readingPane.participants')} {foundThread.participants.map((p) => `${p.name} <${p.email}>`).join(', ')}
+          </div>
+        </header>
+        <div className="reading-pane-messages">
+          <p>{t('common.loading')}</p>
+        </div>
+      </section>
+    )
+  }
+
+  const thread = detailThread
   const accountId = thread.accountId
 
   function formatFullDate(iso: string): string {

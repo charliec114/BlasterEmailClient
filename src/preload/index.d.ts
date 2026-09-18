@@ -37,6 +37,7 @@ interface BlasterApi {
     listFolders: (accountId: string) => Promise<MailFolder[]>
     listThreads: (accountId: string, folderId: string) => Promise<Thread[]>
     listUnifiedInbox: () => Promise<Thread[]>
+    getThread: (accountId: string, threadId: string) => Promise<Thread | undefined>
     search: (query: string) => Promise<Thread[]>
     send: (input: SendMailInput) => Promise<void>
     markThreadRead: (accountId: string, folderId: string, threadId: string) => Promise<void>

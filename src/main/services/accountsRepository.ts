@@ -1,9 +1,17 @@
 import { randomUUID } from 'crypto'
 import { getDb } from '../db'
 import { encryptSecret, decryptSecret } from './secretStorage'
+import { setSetting } from './settingsRepository'
 import type { Account, AccountInput, AccountProtocol, AuthType } from '@shared/types'
 
 const ACCOUNT_COLORS = ['#0a84ff', '#ff9f0a', '#30d158', '#ff375f', '#bf5af2', '#64d2ff']
+
+// Una cuenta que arranca de cero nunca sufrió el bug del algoritmo de threading viejo (que
+// agrupaba solo dentro de una misma carpeta) — no necesita el barrido completo ni una vez
+// (ver rethreadAccount en threading.ts y syncAccount en syncService.ts).
+function markThreadBackfillDone(accountId: string): void {
+  setSetting(`threadBackfillDone:${accountId}`, 'true')
+}
 
 interface AccountRow {
   id: string
@@ -148,6 +156,8 @@ export function addAccount(input: AccountInput): Account {
       createdAt
     })
 
+  markThreadBackfillDone(id)
+
   const row = getDb().prepare('SELECT * FROM accounts WHERE id = ?').get(id) as AccountRow
   return rowToAccount(row)
 }
@@ -256,6 +266,8 @@ export function addGoogleAccount(email: string, name: string, refreshToken: stri
       refreshTokenEnc: encryptSecret(refreshToken),
       createdAt
     })
+
+  markThreadBackfillDone(id)
 
   return rowToAccount(getAccountRow(id))
 }

@@ -41,6 +41,8 @@ const api = {
     listThreads: (accountId: string, folderId: string): Promise<Thread[]> =>
       ipcRenderer.invoke(IPC.mailListThreads, accountId, folderId),
     listUnifiedInbox: (): Promise<Thread[]> => ipcRenderer.invoke(IPC.mailListUnifiedInbox),
+    getThread: (accountId: string, threadId: string): Promise<Thread | undefined> =>
+      ipcRenderer.invoke(IPC.mailGetThread, accountId, threadId),
     search: (query: string): Promise<Thread[]> => ipcRenderer.invoke(IPC.mailSearch, query),
     send: (input: SendMailInput): Promise<void> => ipcRenderer.invoke(IPC.mailSend, input),
     markThreadRead: (accountId: string, folderId: string, threadId: string): Promise<void> =>

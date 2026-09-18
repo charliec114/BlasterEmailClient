@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { getDb } from '../db'
+import { getDb, isFtsAvailable } from '../db'
 import { computeThreadKey, normalizeSubject } from './threading'
 import { upsertContact } from './contactsRepository'
 import type { ParsedMessage } from './mailParser'
@@ -24,6 +24,16 @@ interface FolderRow {
   last_synced_at: string | null
 }
 
+// Columnas livianas: alcanzan para armar la lista de hilos (asunto, remitente, snippet,
+// flags) sin traer el body completo de cada mensaje. El body/adjuntos completos sólo se
+// piden para el hilo que el usuario tiene abierto (ver getThreadDetail más abajo) — pedirlos
+// para todos los mensajes de todos los hilos de una carpeta, en cada sync automático y cada
+// cambio de carpeta, es lo que inflaba el tamaño de cada consulta y lo retenido en memoria.
+const LIST_COLUMNS = `
+  id, account_id, folder_id, remote_uid, message_id, thread_key, subject,
+  from_name, from_email, date, snippet, is_read, is_flagged
+`
+
 interface MessageRow {
   id: string
   account_id: string
@@ -44,6 +54,8 @@ interface MessageRow {
   is_read: number
   is_flagged: number
 }
+
+type MessageListRow = Omit<MessageRow, 'refs_json' | 'to_json' | 'cc_json' | 'body_text' | 'body_html'>
 
 export function upsertFolder(
   accountId: string,
@@ -82,22 +94,27 @@ export function markFolderSynced(folderId: string, lastUid: string | null): void
 }
 
 export function listFoldersForAccount(accountId: string): MailFolder[] {
-  const rows = getDb().prepare('SELECT * FROM folders WHERE account_id = ?').all(accountId) as FolderRow[]
+  const db = getDb()
+  const rows = db.prepare('SELECT * FROM folders WHERE account_id = ?').all(accountId) as FolderRow[]
+
+  const unreadByFolder = new Map<string, number>()
+  for (const row of db
+    .prepare(
+      `SELECT folder_id, COUNT(*) as count FROM messages
+       WHERE account_id = ? AND is_read = 0 GROUP BY folder_id`
+    )
+    .all(accountId) as { folder_id: string; count: number }[]) {
+    unreadByFolder.set(row.folder_id, row.count)
+  }
 
   return rows
-    .map((row) => {
-      const unread = getDb()
-        .prepare('SELECT COUNT(*) as count FROM messages WHERE folder_id = ? AND is_read = 0')
-        .get(row.id) as { count: number }
-
-      return {
-        id: row.id,
-        accountId: row.account_id,
-        name: row.display_name,
-        kind: row.kind,
-        unreadCount: unread.count
-      }
-    })
+    .map((row) => ({
+      id: row.id,
+      accountId: row.account_id,
+      name: row.display_name,
+      kind: row.kind,
+      unreadCount: unreadByFolder.get(row.id) ?? 0
+    }))
     .sort((a, b) => FOLDER_KIND_ORDER[a.kind] - FOLDER_KIND_ORDER[b.kind])
 }
 
@@ -238,19 +255,20 @@ function getAttachmentsByMessageIds(messageIds: string[]): Map<string, Attachmen
   return map
 }
 
-function rowToMessage(row: MessageRow, attachments: AttachmentMeta[]): Message {
+function rowToMessage(row: MessageRow | MessageListRow, attachments: AttachmentMeta[]): Message {
+  const full = row as MessageRow
   return {
     id: row.id,
     from: { name: row.from_name || row.from_email || 'Desconocido', email: row.from_email || '' },
-    to: row.to_json ? JSON.parse(row.to_json) : [],
-    cc: row.cc_json ? JSON.parse(row.cc_json) : [],
+    to: full.to_json ? JSON.parse(full.to_json) : [],
+    cc: full.cc_json ? JSON.parse(full.cc_json) : [],
     subject: row.subject,
     date: row.date,
-    bodyText: row.body_text,
-    bodyHtml: row.body_html ?? undefined,
+    bodyText: full.body_text ?? '',
+    bodyHtml: full.body_html ?? undefined,
     isRead: Boolean(row.is_read),
     messageId: row.message_id,
-    references: row.refs_json ? JSON.parse(row.refs_json) : [],
+    references: full.refs_json ? JSON.parse(full.refs_json) : [],
     attachments
   }
 }
@@ -259,8 +277,8 @@ function rowToMessage(row: MessageRow, attachments: AttachmentMeta[]): Message {
 // "Todos" ([Gmail]/All Mail, que sincronizamos como 'archive') — así que un mismo email
 // puede quedar guardado dos veces con distinto folder_id/remote_uid. Se deduplica por
 // message_id, combinando los flags (leído/marcado si lo está en cualquiera de las copias).
-function dedupeByMessageId(rows: MessageRow[]): MessageRow[] {
-  const byMessageId = new Map<string, MessageRow>()
+function dedupeByMessageId<T extends { message_id: string; is_read: number; is_flagged: number }>(rows: T[]): T[] {
+  const byMessageId = new Map<string, T>()
   for (const row of rows) {
     const existing = byMessageId.get(row.message_id)
     if (!existing) {
@@ -277,14 +295,28 @@ function dedupeByMessageId(rows: MessageRow[]): MessageRow[] {
 // queda en cada Thread es el de la carpeta "más primaria" entre las que tiene mensajes
 // (inbox > sent > ... > custom, ver FOLDER_KIND_ORDER) — importante para búsquedas que
 // cruzan carpetas, donde no hay una carpeta "actual" obvia como en listThreadsForFolder.
-function buildThreadsForKeys(accountId: string, threadKeys: string[]): Thread[] {
+//
+// `detail` controla cuánto se trae de cada mensaje: en modo lista (false, el default) se
+// omiten body_text/body_html/refs_json/to_json/cc_json y los adjuntos — sólo se usan para
+// renderizar el hilo abierto en el Reading Pane (ver getThreadDetail). Pedirlos para todos
+// los mensajes de todos los hilos de una carpeta, en cada sync automático y cada cambio de
+// carpeta, es lo que inflaba cada consulta y lo retenido en el store del renderer.
+function buildThreadsForKeys(accountId: string, threadKeys: string[], detail = false): Thread[] {
   const db = getDb()
   if (threadKeys.length === 0) return []
 
   const placeholders = threadKeys.map(() => '?').join(',')
-  const rows = db
-    .prepare(`SELECT * FROM messages WHERE account_id = ? AND thread_key IN (${placeholders}) ORDER BY date ASC`)
-    .all(accountId, ...threadKeys) as MessageRow[]
+  const rows = (
+    detail
+      ? (db
+          .prepare(`SELECT * FROM messages WHERE account_id = ? AND thread_key IN (${placeholders}) ORDER BY date ASC`)
+          .all(accountId, ...threadKeys) as MessageRow[])
+      : (db
+          .prepare(
+            `SELECT ${LIST_COLUMNS} FROM messages WHERE account_id = ? AND thread_key IN (${placeholders}) ORDER BY date ASC`
+          )
+          .all(accountId, ...threadKeys) as MessageListRow[])
+  )
 
   const folderKindById = new Map<string, MailFolder['kind']>()
   for (const folder of db.prepare('SELECT id, kind FROM folders WHERE account_id = ?').all(accountId) as {
@@ -294,9 +326,9 @@ function buildThreadsForKeys(accountId: string, threadKeys: string[]): Thread[] 
     folderKindById.set(folder.id, folder.kind)
   }
 
-  const attachmentsByMessage = getAttachmentsByMessageIds(rows.map((row) => row.id))
+  const attachmentsByMessage = detail ? getAttachmentsByMessageIds(rows.map((row) => row.id)) : new Map<string, AttachmentMeta[]>()
 
-  const byThread = new Map<string, MessageRow[]>()
+  const byThread = new Map<string, (MessageRow | MessageListRow)[]>()
   for (const row of rows) {
     const bucket = byThread.get(row.thread_key)
     if (bucket) bucket.push(row)
@@ -350,19 +382,57 @@ export function listThreadsForFolder(accountId: string, folderId: string): Threa
     .sort((a, b) => new Date(b.lastMessageDate).getTime() - new Date(a.lastMessageDate).getTime())
 }
 
-export function searchMessages(query: string): Thread[] {
-  const trimmed = query.trim()
-  if (!trimmed) return []
+// Trae un único hilo con el body/adjuntos completos de todos sus mensajes — se pide al abrir
+// un hilo en el Reading Pane (ver useMailDataStore.fetchThreadDetail), separado de las
+// consultas de lista que usan buildThreadsForKeys en modo liviano.
+export function getThreadDetail(accountId: string, threadKey: string): Thread | undefined {
+  return buildThreadsForKeys(accountId, [threadKey], true)[0]
+}
+
+// Cada término se busca como prefijo (equivalente al LIKE '%term%' de antes, pero por
+// palabra en vez de substring literal) — necesario porque la búsqueda dispara con cada
+// tecleo. Las comillas evitan que caracteres de sintaxis de FTS5 (@, ., -, etc., comunes
+// en direcciones de mail) rompan el parseo de la consulta.
+function buildFtsQuery(trimmed: string): string {
+  return trimmed
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => `"${token.replace(/"/g, '""')}"*`)
+    .join(' ')
+}
+
+function searchMessageMatches(trimmed: string): { account_id: string; thread_key: string }[] {
+  const db = getDb()
+
+  if (isFtsAvailable()) {
+    try {
+      return db
+        .prepare(
+          `SELECT DISTINCT m.account_id, m.thread_key
+           FROM messages_fts JOIN messages m ON m.rowid = messages_fts.rowid
+           WHERE messages_fts MATCH ?`
+        )
+        .all(buildFtsQuery(trimmed)) as { account_id: string; thread_key: string }[]
+    } catch (error) {
+      console.error('Búsqueda FTS5 falló, usando LIKE:', error)
+    }
+  }
 
   const like = `%${trimmed}%`
-  const matches = getDb()
+  return db
     .prepare(
       `SELECT DISTINCT account_id, thread_key FROM messages
        WHERE subject LIKE ? OR body_text LIKE ? OR from_name LIKE ? OR from_email LIKE ?
           OR to_json LIKE ? OR cc_json LIKE ?`
     )
     .all(like, like, like, like, like, like) as { account_id: string; thread_key: string }[]
+}
 
+export function searchMessages(query: string): Thread[] {
+  const trimmed = query.trim()
+  if (!trimmed) return []
+
+  const matches = searchMessageMatches(trimmed)
   if (matches.length === 0) return []
 
   const keysByAccount = new Map<string, string[]>()

@@ -12,6 +12,7 @@ export const IPC = {
   mailListFolders: 'mail:list-folders',
   mailListThreads: 'mail:list-threads',
   mailListUnifiedInbox: 'mail:list-unified-inbox',
+  mailGetThread: 'mail:get-thread',
   mailSearch: 'mail:search',
   mailSend: 'mail:send',
   mailMarkThreadRead: 'mail:mark-thread-read',

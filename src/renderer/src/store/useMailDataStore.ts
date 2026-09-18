@@ -9,6 +9,7 @@ interface MailDataStore {
   foldersByAccount: Record<string, MailFolder[]>
   threadsByFolder: Record<string, Thread[]>
   unifiedInboxThreads: Thread[]
+  threadDetails: Record<string, Thread>
   syncingAccountIds: string[]
   searchQuery: string
   searchResults: Thread[]
@@ -16,6 +17,7 @@ interface MailDataStore {
   fetchFolders: (accountId: string) => Promise<void>
   fetchThreads: (accountId: string, folderId: string) => Promise<void>
   fetchUnifiedInbox: () => Promise<void>
+  fetchThreadDetail: (accountId: string, threadId: string) => Promise<void>
   syncAccount: (accountId: string) => Promise<void>
   markThreadRead: (accountId: string, folderId: string, threadId: string) => Promise<void>
   markFolderRead: (accountId: string, folderId: string) => Promise<void>
@@ -50,6 +52,7 @@ export const useMailDataStore = create<MailDataStore>((set, get) => ({
   foldersByAccount: {},
   threadsByFolder: {},
   unifiedInboxThreads: [],
+  threadDetails: {},
   syncingAccountIds: [],
   searchQuery: '',
   searchResults: [],
@@ -68,6 +71,15 @@ export const useMailDataStore = create<MailDataStore>((set, get) => ({
   fetchUnifiedInbox: async () => {
     const threads = await window.api.mail.listUnifiedInbox()
     set({ unifiedInboxThreads: threads })
+  },
+
+  // Los listados (fetchThreads/fetchUnifiedInbox/search) traen los hilos livianos, sin el
+  // body de los mensajes — esto pide el detalle completo de un hilo puntual (ver
+  // getThreadDetail en mailRepository.ts), sólo cuando el usuario lo abre en el Reading Pane.
+  fetchThreadDetail: async (accountId, threadId) => {
+    const thread = await window.api.mail.getThread(accountId, threadId)
+    if (!thread) return
+    set({ threadDetails: { ...get().threadDetails, [threadId]: thread } })
   },
 
   syncAccount: async (accountId) => {

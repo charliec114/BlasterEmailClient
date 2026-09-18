@@ -69,20 +69,26 @@ export function computeThreadKey(
   return message.messageId
 }
 
-// Recalcula thread_key para todos los mensajes de una cuenta con el algoritmo cross-folder.
-// Corre solo cuando llegó mail nuevo (ver syncService) — autocorrige datos ya sincronizados
-// con una versión anterior del algoritmo (que agrupaba solo dentro de una misma carpeta).
+// Recalcula thread_key para los mensajes de una cuenta con el algoritmo cross-folder.
+// Corre solo cuando llegó mail nuevo (ver syncService). Sin `sinceIso`, barre toda la cuenta
+// — hace falta una vez por cuenta para autocorregir datos ya sincronizados con una versión
+// anterior del algoritmo (que agrupaba solo dentro de una misma carpeta). Con `sinceIso`, se
+// acota a los mensajes recientes: alcanza para el caso que sigue vivo en cada sync (un mensaje
+// se inserta fuera de orden respecto de su padre/hijo porque quedaron en carpetas distintas de
+// la misma corrida, ej. la respuesta en "Sent" antes que el original en "Inbox") — por
+// construcción, ambos extremos de ese caso son mensajes recientes, no del historial viejo.
 // Todo el barrido va en una sola transacción: sin esto, cada UPDATE hace su propio commit
 // (fsync/checkpoint de WAL incluido), lo que en una cuenta de miles de mensajes bloquea el
 // proceso principal — y con él, toda la ventana — el tiempo suficiente como para que el SO
 // muestre el diálogo de "no responde".
-export function rethreadAccount(db: Database.Database, accountId: string): void {
+export function rethreadAccount(db: Database.Database, accountId: string, sinceIso?: string): void {
   const rows = db
     .prepare(
       `SELECT id, message_id, in_reply_to, refs_json, subject, subject_norm, date
-       FROM messages WHERE account_id = ? ORDER BY date ASC, id ASC`
+       FROM messages WHERE account_id = @accountId AND (@sinceIso IS NULL OR date >= @sinceIso)
+       ORDER BY date ASC, id ASC`
     )
-    .all(accountId) as {
+    .all({ accountId, sinceIso: sinceIso ?? null }) as {
     id: string
     message_id: string
     in_reply_to: string | null

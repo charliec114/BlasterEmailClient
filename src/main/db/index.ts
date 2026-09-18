@@ -3,12 +3,67 @@ import { app } from 'electron'
 import { join } from 'path'
 
 let db: Database.Database | null = null
+let ftsAvailable = false
 
 function ensureColumn(database: Database.Database, table: string, column: string, definition: string): void {
   const columns = database.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]
   if (!columns.some((c) => c.name === column)) {
     database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
   }
+}
+
+// Índice de texto completo para búsqueda (ver searchMessages en mailRepository.ts) — sin
+// esto, buscar hace un LIKE '%...%' sobre body_text (el cuerpo completo de cada mail) sin
+// poder usar ningún índice, un escaneo síncrono que empeora cuanto más mail se acumula.
+// "external content": la tabla fts5 no duplica el texto, sólo indexa referenciando el rowid
+// de `messages`; los triggers la mantienen sincronizada en cada INSERT/UPDATE/DELETE.
+function setupFts(database: Database.Database): void {
+  try {
+    const existed = database
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'messages_fts'`)
+      .get() as { name: string } | undefined
+
+    database.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+        subject, body_text, from_name, from_email, to_json, cc_json,
+        content='messages', content_rowid='rowid'
+      )
+    `)
+
+    database.exec(`
+      CREATE TRIGGER IF NOT EXISTS messages_fts_ai AFTER INSERT ON messages BEGIN
+        INSERT INTO messages_fts(rowid, subject, body_text, from_name, from_email, to_json, cc_json)
+        VALUES (new.rowid, new.subject, new.body_text, new.from_name, new.from_email, new.to_json, new.cc_json);
+      END
+    `)
+    database.exec(`
+      CREATE TRIGGER IF NOT EXISTS messages_fts_ad AFTER DELETE ON messages BEGIN
+        INSERT INTO messages_fts(messages_fts, rowid, subject, body_text, from_name, from_email, to_json, cc_json)
+        VALUES ('delete', old.rowid, old.subject, old.body_text, old.from_name, old.from_email, old.to_json, old.cc_json);
+      END
+    `)
+    database.exec(`
+      CREATE TRIGGER IF NOT EXISTS messages_fts_au AFTER UPDATE ON messages BEGIN
+        INSERT INTO messages_fts(messages_fts, rowid, subject, body_text, from_name, from_email, to_json, cc_json)
+        VALUES ('delete', old.rowid, old.subject, old.body_text, old.from_name, old.from_email, old.to_json, old.cc_json);
+        INSERT INTO messages_fts(rowid, subject, body_text, from_name, from_email, to_json, cc_json)
+        VALUES (new.rowid, new.subject, new.body_text, new.from_name, new.from_email, new.to_json, new.cc_json);
+      END
+    `)
+
+    if (!existed) {
+      database.exec(`INSERT INTO messages_fts(messages_fts) VALUES ('rebuild')`)
+    }
+
+    ftsAvailable = true
+  } catch (error) {
+    console.error('FTS5 no disponible, la búsqueda de mensajes va a usar LIKE:', error)
+    ftsAvailable = false
+  }
+}
+
+export function isFtsAvailable(): boolean {
+  return ftsAvailable
 }
 
 export function getDb(): Database.Database {
@@ -94,6 +149,8 @@ export function getDb(): Database.Database {
   ensureColumn(db, 'accounts', 'signature_html', 'TEXT')
   ensureColumn(db, 'messages', 'to_json', 'TEXT')
   ensureColumn(db, 'messages', 'cc_json', 'TEXT')
+
+  setupFts(db)
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS contacts (

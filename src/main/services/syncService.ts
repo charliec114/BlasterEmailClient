@@ -4,6 +4,10 @@ import { markSeenOnImapServer, syncImapAccount } from './imapSync'
 import { syncPop3Account } from './pop3Sync'
 import { getFolderRemotePath, markFolderReadLocal, markThreadReadLocal } from './mailRepository'
 import { rethreadAccount } from './threading'
+import { getSetting, setSetting } from './settingsRepository'
+
+const RETHREAD_BACKFILL_DONE_PREFIX = 'threadBackfillDone:'
+const RETHREAD_RECENT_WINDOW_MS = 90 * 24 * 60 * 60 * 1000
 
 export async function syncAccount(accountId: string): Promise<void> {
   const account = getAccountById(accountId)
@@ -11,11 +15,19 @@ export async function syncAccount(accountId: string): Promise<void> {
   const newMessageCount =
     account.protocol === 'imap' ? await syncImapAccount(account) : await syncPop3Account(account)
 
-  // Re-threadear barre toda la cuenta (ver threading.ts) — sólo vale la pena pagar ese costo
-  // cuando efectivamente llegó mail nuevo. La mayoría de los syncs automáticos (cada 5 min,
-  // sin nada nuevo) ahora no tocan la base para nada.
+  // Re-threadear sólo vale la pena pagarlo cuando efectivamente llegó mail nuevo. La mayoría
+  // de los syncs automáticos (cada 5 min, sin nada nuevo) no tocan la base para nada.
   if (newMessageCount > 0) {
-    rethreadAccount(getDb(), accountId)
+    const backfillFlag = `${RETHREAD_BACKFILL_DONE_PREFIX}${accountId}`
+    if (getSetting(backfillFlag)) {
+      // Cuenta ya prolijada una vez: de acá en más alcanza con recalcular lo reciente
+      // (ver comentario en threading.ts) — el costo ya no crece con el historial total.
+      const sinceIso = new Date(Date.now() - RETHREAD_RECENT_WINDOW_MS).toISOString()
+      rethreadAccount(getDb(), accountId, sinceIso)
+    } else {
+      rethreadAccount(getDb(), accountId)
+      setSetting(backfillFlag, 'true')
+    }
   }
 }
 

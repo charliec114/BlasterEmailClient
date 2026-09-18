@@ -4,6 +4,7 @@ import { IPC } from '@shared/ipc'
 import type { SendMailInput } from '@shared/types'
 import {
   getAttachmentContent,
+  getThreadDetail,
   listFoldersForAccount,
   listThreadsForFolder,
   listUnifiedInboxThreads,
@@ -22,6 +23,8 @@ export function registerMailIpc(): void {
   )
 
   ipcMain.handle(IPC.mailListUnifiedInbox, () => listUnifiedInboxThreads())
+
+  ipcMain.handle(IPC.mailGetThread, (_event, accountId: string, threadId: string) => getThreadDetail(accountId, threadId))
 
   ipcMain.handle(IPC.mailSearch, (_event, query: string) => searchMessages(query))
 
