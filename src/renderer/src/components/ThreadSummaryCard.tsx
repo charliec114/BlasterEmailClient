@@ -26,7 +26,7 @@ export default function ThreadSummaryCard({ thread }: ThreadSummaryCardProps) {
 
   useEffect(() => {
     setLoading(true)
-    window.api.ollama.getSummary(thread.id).then((cached) => {
+    window.api.ai.getSummary(thread.id).then((cached) => {
       if (cached) {
         setSummary(cached.summary)
         setStale(cached.lastMessageDate < thread.lastMessageDate)
@@ -43,7 +43,7 @@ export default function ThreadSummaryCard({ thread }: ThreadSummaryCardProps) {
     setGenerating(true)
     setError(null)
     try {
-      const result = await window.api.ollama.summarizeThread(thread.id, thread.lastMessageDate, buildThreadText(thread))
+      const result = await window.api.ai.summarizeThread(thread.id, thread.lastMessageDate, buildThreadText(thread))
       setSummary(result)
       setStale(false)
     } catch (err) {

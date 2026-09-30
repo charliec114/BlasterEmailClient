@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3'
+import { prepared } from '../db'
 
 const SUBJECT_PREFIX = /^\s*(re|rv|fwd|fw)\s*:\s*/i
 const SUBJECT_FALLBACK_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
@@ -37,12 +38,12 @@ export function computeThreadKey(
   )
 
   for (const candidateId of referenceCandidates) {
-    const match = db
-      .prepare(
-        `SELECT thread_key FROM messages
+    const match = prepared(
+      db,
+      `SELECT thread_key FROM messages
          WHERE account_id = @accountId AND message_id = @candidateId
            AND (@excludeId IS NULL OR id != @excludeId)`
-      )
+    )
       .get({ accountId, candidateId, excludeId: excludeId ?? null }) as ThreadKeyRow | undefined
     if (match) return match.thread_key
   }
@@ -54,14 +55,14 @@ export function computeThreadKey(
   // terminan fusionadas, y el hilo viejo salta arriba de todo con la fecha del mensaje nuevo.
   if (subjectNorm && SUBJECT_PREFIX.test(message.subject)) {
     const cutoff = new Date(new Date(currentDate).getTime() - SUBJECT_FALLBACK_WINDOW_MS).toISOString()
-    const match = db
-      .prepare(
-        `SELECT thread_key FROM messages
+    const match = prepared(
+      db,
+      `SELECT thread_key FROM messages
          WHERE account_id = @accountId AND subject_norm = @subjectNorm
            AND date >= @cutoff AND date <= @currentDate
            AND (@excludeId IS NULL OR id != @excludeId)
          ORDER BY date DESC LIMIT 1`
-      )
+    )
       .get({ accountId, subjectNorm, cutoff, currentDate, excludeId: excludeId ?? null }) as ThreadKeyRow | undefined
     if (match) return match.thread_key
   }
@@ -98,7 +99,7 @@ export function rethreadAccount(db: Database.Database, accountId: string, sinceI
     date: string
   }[]
 
-  const updateThreadKey = db.prepare('UPDATE messages SET thread_key = ? WHERE id = ?')
+  const updateThreadKey = prepared(db, 'UPDATE messages SET thread_key = ? WHERE id = ?')
 
   const applyAll = db.transaction(() => {
     for (const row of rows) {

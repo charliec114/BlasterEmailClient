@@ -18,11 +18,30 @@ interface MailDataStore {
   fetchThreads: (accountId: string, folderId: string) => Promise<void>
   fetchUnifiedInbox: () => Promise<void>
   fetchThreadDetail: (accountId: string, threadId: string) => Promise<void>
-  syncAccount: (accountId: string) => Promise<void>
+  syncAccount: (accountId: string) => Promise<number>
   markThreadRead: (accountId: string, folderId: string, threadId: string) => Promise<void>
   markFolderRead: (accountId: string, folderId: string) => Promise<void>
   search: (query: string) => Promise<void>
   clearSearch: () => void
+}
+
+// Cada refresco trae la lista completa desde main. Los hilos que no cambiaron conservan su
+// referencia anterior, así las filas memoizadas de MessageList no se vuelven a renderizar.
+function reuseUnchangedThreads(previous: Thread[] | undefined, next: Thread[]): Thread[] {
+  if (!previous || previous.length === 0) return next
+  const previousById = new Map(previous.map((t) => [t.id, t]))
+  return next.map((thread) => {
+    const old = previousById.get(thread.id)
+    return old &&
+      old.lastMessageDate === thread.lastMessageDate &&
+      old.hasUnread === thread.hasUnread &&
+      old.isFlagged === thread.isFlagged &&
+      old.snippet === thread.snippet &&
+      old.folderId === thread.folderId &&
+      old.messages.length === thread.messages.length
+      ? old
+      : thread
+  })
 }
 
 function sumUnread(folders: MailFolder[]): number {
@@ -65,12 +84,12 @@ export const useMailDataStore = create<MailDataStore>((set, get) => ({
 
   fetchThreads: async (accountId, folderId) => {
     const threads = await window.api.mail.listThreads(accountId, folderId)
-    set({ threadsByFolder: { ...get().threadsByFolder, [folderId]: threads } })
+    set({ threadsByFolder: { ...get().threadsByFolder, [folderId]: reuseUnchangedThreads(get().threadsByFolder[folderId], threads) } })
   },
 
   fetchUnifiedInbox: async () => {
     const threads = await window.api.mail.listUnifiedInbox()
-    set({ unifiedInboxThreads: threads })
+    set({ unifiedInboxThreads: reuseUnchangedThreads(get().unifiedInboxThreads, threads) })
   },
 
   // Los listados (fetchThreads/fetchUnifiedInbox/search) traen los hilos livianos, sin el
@@ -82,23 +101,30 @@ export const useMailDataStore = create<MailDataStore>((set, get) => ({
     set({ threadDetails: { ...get().threadDetails, [threadId]: thread } })
   },
 
+  // Devuelve cuántos mensajes nuevos trajo el sync. Si fue 0 no hay nada que refrescar (ni
+  // carpetas ni listados), que es el caso normal del sync automático cada 5 minutos.
   syncAccount: async (accountId) => {
+    if (get().syncingAccountIds.includes(accountId)) return 0
     const unreadBefore = sumUnread(get().foldersByAccount[accountId] ?? [])
     set({ syncingAccountIds: [...get().syncingAccountIds, accountId] })
     try {
-      await window.api.mail.sync(accountId)
-      await get().fetchFolders(accountId)
-      const unreadAfter = sumUnread(get().foldersByAccount[accountId] ?? [])
-      const newCount = unreadAfter - unreadBefore
-      if (newCount > 0) {
+      const newCount = await window.api.mail.sync(accountId)
+      // Sin carpetas cargadas todavía (primer sync) hay que traerlas igual aunque no haya mail nuevo.
+      if (newCount > 0 || !get().foldersByAccount[accountId]) {
+        await get().fetchFolders(accountId)
+      }
+      // Los mensajes nuevos también pueden ser de Enviados (ya leídos): se avisa sólo por no leídos.
+      const newUnread = sumUnread(get().foldersByAccount[accountId] ?? []) - unreadBefore
+      if (newCount > 0 && newUnread > 0) {
         const settings = useSettingsStore.getState()
         if (settings.soundEnabled) playNewMailSound()
         if (settings.notificationsEnabled) {
           const account = useAccountStore.getState().accounts.find((a) => a.id === accountId)
           const senderName = await latestUnreadSender(accountId, get().foldersByAccount[accountId] ?? [])
-          notifyNewMail(newCount, account?.label, senderName)
+          notifyNewMail(newUnread, account?.label, senderName)
         }
       }
+      return newCount
     } finally {
       set({ syncingAccountIds: get().syncingAccountIds.filter((id) => id !== accountId) })
     }

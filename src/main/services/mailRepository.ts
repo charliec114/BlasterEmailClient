@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { getDb, isFtsAvailable } from '../db'
+import { getDb, isFtsAvailable, prepared } from '../db'
 import { computeThreadKey, normalizeSubject } from './threading'
 import { upsertContact } from './contactsRepository'
 import type { ParsedMessage } from './mailParser'
@@ -175,7 +175,8 @@ export function insertMessage(
   const threadKey = computeThreadKey(db, accountId, parsed, subjectNorm, parsed.date)
   const messageId = randomUUID()
 
-  const insert = db.prepare(
+  const insert = prepared(
+    db,
     `INSERT OR IGNORE INTO messages (
       id, account_id, folder_id, remote_uid, message_id, in_reply_to, refs_json,
       thread_key, subject, subject_norm, from_name, from_email, to_json, cc_json, date,
@@ -211,7 +212,8 @@ export function insertMessage(
   })
 
   if (insertResult.changes > 0 && parsed.attachments.length > 0) {
-    const insertAttachment = db.prepare(
+    const insertAttachment = prepared(
+      db,
       'INSERT INTO attachments (id, message_id, filename, content_type, size, content) VALUES (?, ?, ?, ?, ?, ?)'
     )
     for (const attachment of parsed.attachments) {
@@ -313,10 +315,17 @@ function buildThreadsForKeys(accountId: string, threadKeys: string[], detail = f
           .all(accountId, ...threadKeys) as MessageRow[])
       : (db
           .prepare(
-            `SELECT ${LIST_COLUMNS} FROM messages WHERE account_id = ? AND thread_key IN (${placeholders}) ORDER BY date ASC`
+            `SELECT ${LIST_COLUMNS} FROM messages INDEXED BY idx_messages_list
+             WHERE account_id = ? AND thread_key IN (${placeholders}) ORDER BY date ASC`
           )
           .all(accountId, ...threadKeys) as MessageListRow[])
   )
+
+  return assembleThreads(accountId, rows, detail)
+}
+
+function assembleThreads(accountId: string, rows: (MessageRow | MessageListRow)[], detail: boolean): Thread[] {
+  const db = getDb()
 
   const folderKindById = new Map<string, MailFolder['kind']>()
   for (const folder of db.prepare('SELECT id, kind FROM folders WHERE account_id = ?').all(accountId) as {
@@ -368,13 +377,19 @@ function buildThreadsForKeys(accountId: string, threadKeys: string[], detail = f
 }
 
 export function listThreadsForFolder(accountId: string, folderId: string): Thread[] {
-  const threadKeyRows = getDb()
-    .prepare('SELECT DISTINCT thread_key FROM messages WHERE account_id = ? AND folder_id = ?')
-    .all(accountId, folderId) as { thread_key: string }[]
+  // Una sola consulta con subselect (sin una lista de miles de parámetros): los hilos de la
+  // carpeta se resuelven con idx_messages_thread (cubriente) y sus mensajes con idx_messages_list.
+  const rows = getDb()
+    .prepare(
+      `SELECT ${LIST_COLUMNS} FROM messages INDEXED BY idx_messages_list
+       WHERE account_id = ? AND thread_key IN (SELECT thread_key FROM messages WHERE folder_id = ?)
+       ORDER BY date ASC`
+    )
+    .all(accountId, folderId) as MessageListRow[]
 
-  if (threadKeyRows.length === 0) return []
+  if (rows.length === 0) return []
 
-  const threads = buildThreadsForKeys(accountId, threadKeyRows.map((row) => row.thread_key))
+  const threads = assembleThreads(accountId, rows, false)
   // El usuario está navegando esta carpeta puntual: las acciones (marcar leído, etc.)
   // tienen que referirse a ella, no a la carpeta "primaria" que elige buildThreadsForKeys.
   return threads

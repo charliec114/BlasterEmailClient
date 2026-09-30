@@ -66,12 +66,32 @@ export function isFtsAvailable(): boolean {
   return ftsAvailable
 }
 
+const preparedStatements = new Map<string, Database.Statement>()
+
+// Reusa el statement preparado para SQL que se ejecuta muchas veces seguidas (por cada mensaje
+// de un sync, por cada fila del re-threading): preparar cuesta más que ejecutar.
+export function prepared(database: Database.Database, sql: string): Database.Statement {
+  let statement = preparedStatements.get(sql)
+  if (!statement) {
+    statement = database.prepare(sql)
+    preparedStatements.set(sql, statement)
+  }
+  return statement
+}
+
 export function getDb(): Database.Database {
   if (db) return db
 
   const dbPath = join(app.getPath('userData'), 'blaster.db')
   db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
+  // Con WAL, synchronous=NORMAL es seguro (no se pierde consistencia, sólo la última
+  // transacción ante un corte de luz) y evita un fsync por commit. La base pesa cientos de
+  // MB (los bodies van inline), así que además se agranda el cache y se mapea a memoria.
+  db.pragma('synchronous = NORMAL')
+  db.pragma('cache_size = -65536')
+  db.pragma('mmap_size = 268435456')
+  db.pragma('temp_store = MEMORY')
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS accounts (
@@ -138,6 +158,15 @@ export function getDb(): Database.Database {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_account_thread ON messages(account_id, thread_key)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_account_message_id ON messages(account_id, message_id)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_account_date ON messages(account_id, date)`)
+  // Índice cubriente de las columnas de lista (ver LIST_COLUMNS en mailRepository.ts): armar la
+  // lista de hilos se resuelve sólo con el índice, sin ir a la tabla (donde cada fila arrastra
+  // el body completo).
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_messages_list ON messages(
+      account_id, thread_key, date, id, folder_id, message_id, remote_uid,
+      subject, from_name, from_email, snippet, is_read, is_flagged
+    )`
+  )
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (

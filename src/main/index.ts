@@ -4,7 +4,8 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerAccountsIpc } from './ipc/accounts'
 import { registerMailIpc } from './ipc/mail'
 import { registerSettingsIpc } from './ipc/settings'
-import { registerOllamaIpc } from './ipc/ollama'
+import { registerAiIpc } from './ipc/ai'
+import { migrateLegacyAiConfig } from './services/aiConfigMigration'
 import { registerContactsIpc } from './ipc/contacts'
 import { registerDialogIpc } from './ipc/dialog'
 import { registerApiKeysIpc } from './ipc/apiKeys'
@@ -65,10 +66,12 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  migrateLegacyAiConfig()
+
   registerAccountsIpc()
   registerMailIpc()
   registerSettingsIpc()
-  registerOllamaIpc()
+  registerAiIpc()
   registerContactsIpc()
   registerDialogIpc()
   registerApiKeysIpc()

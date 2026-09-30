@@ -1,16 +1,12 @@
 import { useState } from 'react'
-import { useSettingsStore, type AiProvider, type Language, type ThemePreference } from '../store/useSettingsStore'
+import { useSettingsStore, type Language, type ThemePreference } from '../store/useSettingsStore'
 import { useT } from '../i18n/useT'
 
 interface SettingsModalProps {
   onClose: () => void
 }
 
-const CLOUD_PROVIDERS: { value: 'openai' | 'gemini' | 'anthropic'; modelPlaceholder: string }[] = [
-  { value: 'openai', modelPlaceholder: 'gpt-4o-mini' },
-  { value: 'gemini', modelPlaceholder: 'gemini-1.5-flash' },
-  { value: 'anthropic', modelPlaceholder: 'claude-3-5-haiku-latest' }
-]
+const AI_KEY_PROVIDER = 'ai'
 
 export default function SettingsModal({ onClose }: SettingsModalProps) {
   const { t } = useT()
@@ -29,30 +25,21 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
   const updateError = useSettingsStore((s) => s.updateError)
   const checkForUpdate = useSettingsStore((s) => s.checkForUpdate)
 
-  const aiProvider = useSettingsStore((s) => s.aiProvider)
-  const setAiProvider = useSettingsStore((s) => s.setAiProvider)
   const aiStylePrompt = useSettingsStore((s) => s.aiStylePrompt)
   const setAiStylePrompt = useSettingsStore((s) => s.setAiStylePrompt)
 
-  const ollamaBaseUrl = useSettingsStore((s) => s.ollamaBaseUrl)
-  const ollamaModel = useSettingsStore((s) => s.ollamaModel)
-  const ollamaModels = useSettingsStore((s) => s.ollamaModels)
-  const ollamaError = useSettingsStore((s) => s.ollamaError)
-  const ollamaLoadingModels = useSettingsStore((s) => s.ollamaLoadingModels)
-  const setOllamaBaseUrl = useSettingsStore((s) => s.setOllamaBaseUrl)
-  const setOllamaModel = useSettingsStore((s) => s.setOllamaModel)
-  const refreshOllamaModels = useSettingsStore((s) => s.refreshOllamaModels)
-
-  const openaiModel = useSettingsStore((s) => s.openaiModel)
-  const geminiModel = useSettingsStore((s) => s.geminiModel)
-  const anthropicModel = useSettingsStore((s) => s.anthropicModel)
-  const setOpenaiModel = useSettingsStore((s) => s.setOpenaiModel)
-  const setGeminiModel = useSettingsStore((s) => s.setGeminiModel)
-  const setAnthropicModel = useSettingsStore((s) => s.setAnthropicModel)
+  const aiBaseUrl = useSettingsStore((s) => s.aiBaseUrl)
+  const aiModel = useSettingsStore((s) => s.aiModel)
+  const aiModels = useSettingsStore((s) => s.aiModels)
+  const aiModelsError = useSettingsStore((s) => s.aiModelsError)
+  const aiLoadingModels = useSettingsStore((s) => s.aiLoadingModels)
+  const setAiBaseUrl = useSettingsStore((s) => s.setAiBaseUrl)
+  const setAiModel = useSettingsStore((s) => s.setAiModel)
+  const refreshAiModels = useSettingsStore((s) => s.refreshAiModels)
   const apiKeyStatus = useSettingsStore((s) => s.apiKeyStatus)
   const setApiKey = useSettingsStore((s) => s.setApiKey)
 
-  const [apiKeyInputs, setApiKeyInputs] = useState<Record<string, string>>({})
+  const [apiKeyInput, setApiKeyInput] = useState('')
 
   const themeOptions: { value: ThemePreference; label: string }[] = [
     { value: 'light', label: t('settingsModal.themeLight') },
@@ -65,33 +52,16 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
     { value: 'en', label: t('settingsModal.languageEn') }
   ]
 
-  const providerOptions: { value: AiProvider; label: string }[] = [
-    { value: 'ollama', label: t('settingsModal.providerLocal') },
-    { value: 'openai', label: 'OpenAI' },
-    { value: 'gemini', label: 'Gemini' },
-    { value: 'anthropic', label: 'Anthropic' }
-  ]
+  // El token es opcional (los servidores locales no lo piden): alcanza con URL y modelo.
+  const aiReady = aiBaseUrl.trim() !== '' && aiModel.trim() !== ''
+  const hasApiKey = Boolean(apiKeyStatus[AI_KEY_PROVIDER])
 
-  const modelByProvider: Record<string, string> = { openai: openaiModel, gemini: geminiModel, anthropic: anthropicModel }
-  const setModelByProvider: Record<string, (model: string) => Promise<void>> = {
-    openai: setOpenaiModel,
-    gemini: setGeminiModel,
-    anthropic: setAnthropicModel
+  function saveApiKey(): void {
+    if (apiKeyInput.trim()) {
+      setApiKey(AI_KEY_PROVIDER, apiKeyInput).then(refreshAiModels)
+      setApiKeyInput('')
+    }
   }
-  const providerLabel: Record<AiProvider, string> = {
-    ollama: t('settingsModal.providerLocal'),
-    openai: 'OpenAI',
-    gemini: 'Gemini',
-    anthropic: 'Anthropic'
-  }
-
-  function isProviderReady(provider: AiProvider): boolean {
-    if (provider === 'ollama') return ollamaModel !== ''
-    return Boolean(apiKeyStatus[provider]) && modelByProvider[provider] !== ''
-  }
-
-  const activeModel = aiProvider === 'ollama' ? ollamaModel : modelByProvider[aiProvider]
-  const activeReady = isProviderReady(aiProvider)
 
   return (
     <div className="modal-overlay">
@@ -149,86 +119,70 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
           <fieldset>
             <legend>{t('settingsModal.aiSection')}</legend>
 
-            <p className="ai-provider-hint">{t('settingsModal.aiProviderHint')}</p>
+            <p className="ai-provider-hint">{t('settingsModal.aiApiHint')}</p>
 
-            <label>{t('settingsModal.aiProvider')}</label>
-            <div className="protocol-toggle">
-              {providerOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={aiProvider === option.value ? 'active' : ''}
-                  onClick={() => setAiProvider(option.value)}
-                >
-                  <span className={`provider-ready-dot ${isProviderReady(option.value) ? 'ready' : ''}`} />
-                  {option.label}
-                </button>
-              ))}
+            <div className={`ai-provider-status ${aiReady ? 'ready' : 'not-ready'}`}>
+              {aiReady
+                ? t('settingsModal.currentlyUsing', { model: aiModel })
+                : t('settingsModal.currentlyUsingIncomplete')}
             </div>
 
-            <div className={`ai-provider-status ${activeReady ? 'ready' : 'not-ready'}`}>
-              {activeReady
-                ? t('settingsModal.currentlyUsing', { provider: providerLabel[aiProvider], model: activeModel })
-                : t('settingsModal.currentlyUsingIncomplete', { provider: providerLabel[aiProvider] })}
-            </div>
+            <label>
+              <span>
+                {t('settingsModal.aiApiUrl')}{' '}
+                <span className="info-tooltip" title={t('settingsModal.aiApiExamples')}>
+                  ⓘ
+                </span>
+              </span>
+              <input
+                value={aiBaseUrl}
+                onChange={(e) => setAiBaseUrl(e.target.value)}
+                onBlur={refreshAiModels}
+                placeholder="http://localhost:11434/v1"
+              />
+            </label>
 
-            {aiProvider === 'ollama' && (
-              <>
-                <label>
-                  {t('settingsModal.server')}
-                  <input
-                    value={ollamaBaseUrl}
-                    onChange={(e) => setOllamaBaseUrl(e.target.value)}
-                    placeholder="http://localhost:11434/v1"
-                  />
-                </label>
-                <p className="ai-provider-hint">{t('settingsModal.ollamaServerHint')}</p>
-
-                <div className="field-row">
-                  <label>
-                    {t('settingsModal.model')}
-                    <select value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)}>
-                      <option value="">{t('settingsModal.noModelSelected')}</option>
-                      {ollamaModels.map((model) => (
-                        <option key={model} value={model}>
-                          {model}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button type="button" className="reply-btn" disabled={ollamaLoadingModels} onClick={refreshOllamaModels}>
-                    {ollamaLoadingModels ? t('settingsModal.searchingModels') : t('settingsModal.refreshModels')}
-                  </button>
-                </div>
-
-                {ollamaError && <div className="test-fail">{t('settingsModal.ollamaError', { error: ollamaError })}</div>}
-              </>
+            <label>
+              {t('settingsModal.aiApiToken')}
+              <input
+                type="password"
+                value={apiKeyInput}
+                onChange={(e) => setApiKeyInput(e.target.value)}
+                onBlur={saveApiKey}
+                placeholder={hasApiKey ? t('settingsModal.apiKeyConfiguredHint') : t('settingsModal.aiApiTokenPlaceholder')}
+              />
+            </label>
+            {hasApiKey && (
+              <button
+                type="button"
+                className="reply-btn"
+                onClick={() => setApiKey(AI_KEY_PROVIDER, '').then(refreshAiModels)}
+              >
+                {t('settingsModal.aiApiTokenRemove')}
+              </button>
             )}
 
-            {CLOUD_PROVIDERS.filter((p) => p.value === aiProvider).map((provider) => (
-              <div key={provider.value} className="form-grid">
-                <label>
-                  {t('settingsModal.apiKey')}
-                  <input
-                    type="password"
-                    value={apiKeyInputs[provider.value] ?? ''}
-                    onChange={(e) => setApiKeyInputs((prev) => ({ ...prev, [provider.value]: e.target.value }))}
-                    onBlur={(e) => {
-                      if (e.target.value) setApiKey(provider.value, e.target.value)
-                    }}
-                    placeholder={apiKeyStatus[provider.value] ? t('settingsModal.apiKeyConfiguredHint') : t('settingsModal.apiKeyPlaceholder')}
-                  />
-                </label>
-                <label>
-                  {t('settingsModal.model')}
-                  <input
-                    value={modelByProvider[provider.value]}
-                    onChange={(e) => setModelByProvider[provider.value](e.target.value)}
-                    placeholder={provider.modelPlaceholder}
-                  />
-                </label>
-              </div>
-            ))}
+            <div className="field-row">
+              <label>
+                {t('settingsModal.model')}
+                <input
+                  list="ai-model-suggestions"
+                  value={aiModel}
+                  onChange={(e) => setAiModel(e.target.value)}
+                  placeholder="llama3.1"
+                />
+                <datalist id="ai-model-suggestions">
+                  {aiModels.map((model) => (
+                    <option key={model} value={model} />
+                  ))}
+                </datalist>
+              </label>
+              <button type="button" className="reply-btn" disabled={aiLoadingModels || !aiBaseUrl.trim()} onClick={refreshAiModels}>
+                {aiLoadingModels ? t('settingsModal.searchingModels') : t('settingsModal.refreshModels')}
+              </button>
+            </div>
+
+            {aiModelsError && <div className="ai-provider-hint">{t('settingsModal.aiModelsError', { error: aiModelsError })}</div>}
 
             <label>
               {t('settingsModal.stylePrompt')}
@@ -244,7 +198,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
           <fieldset>
             <legend>{t('settingsModal.aboutSection')}</legend>
             <div className="about-panel">
-              <img src="/icon.png" alt="Blaster Email Client" className="about-icon" />
+              <img src="./icon.png" alt="Blaster Email Client" className="about-icon" />
               <div className="about-info">
                 <div className="about-name">
                   Blaster <span className="about-name-accent">Email Client</span>

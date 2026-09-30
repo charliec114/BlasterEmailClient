@@ -9,7 +9,7 @@ import { getSetting, setSetting } from './settingsRepository'
 const RETHREAD_BACKFILL_DONE_PREFIX = 'threadBackfillDone:'
 const RETHREAD_RECENT_WINDOW_MS = 90 * 24 * 60 * 60 * 1000
 
-export async function syncAccount(accountId: string): Promise<void> {
+export async function syncAccount(accountId: string): Promise<number> {
   const account = getAccountById(accountId)
 
   const newMessageCount =
@@ -29,6 +29,8 @@ export async function syncAccount(accountId: string): Promise<void> {
       setSetting(backfillFlag, 'true')
     }
   }
+
+  return newMessageCount
 }
 
 export async function markThreadRead(accountId: string, folderId: string, threadKey: string): Promise<void> {

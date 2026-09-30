@@ -78,22 +78,41 @@ export default function Sidebar() {
     fetchAccounts()
   }, [fetchAccounts])
 
-  const syncAllAccounts = useCallback(async () => {
-    // Secuencial, no Promise.all: cada sync hace trabajo síncrono pesado en el proceso
-    // principal (SQLite), así que sincronizar todas las cuentas "en paralelo" solo las
-    // amontona una atrás de la otra igual — pero de a una, la ventana puede seguir
-    // respondiendo entre cuenta y cuenta en vez de acumular todo el bloqueo junto.
-    for (const account of accounts) {
-      await syncAccountData(account.id)
-    }
-    fetchScheduledMail()
+  // Re-lista la carpeta/bandeja abierta. Es la operación cara (arma todos los hilos), así que
+  // se hace sólo si el sync trajo mail nuevo — o si el usuario lo pidió a mano.
+  const refreshOpenList = useCallback((accountId?: string) => {
     const current = useMailStore.getState()
     if (current.selectedFolderId === UNIFIED_INBOX_ID) {
       fetchUnifiedInbox()
     } else if (current.selectedAccountId && current.selectedFolderId) {
+      if (accountId && current.selectedAccountId !== accountId) return
       fetchThreads(current.selectedAccountId, current.selectedFolderId)
     }
-  }, [accounts, syncAccountData, fetchThreads, fetchUnifiedInbox, fetchScheduledMail])
+  }, [fetchThreads, fetchUnifiedInbox])
+
+  const syncAllAccounts = useCallback(
+    async (manual = false) => {
+      // Secuencial, no Promise.all: cada sync hace trabajo síncrono pesado en el proceso
+      // principal (SQLite), así que sincronizar todas las cuentas "en paralelo" solo las
+      // amontona una atrás de la otra igual — pero de a una, la ventana puede seguir
+      // respondiendo entre cuenta y cuenta en vez de acumular todo el bloqueo junto.
+      let newMessages = 0
+      for (const account of accounts) {
+        newMessages += await syncAccountData(account.id)
+      }
+      fetchScheduledMail()
+      if (manual || newMessages > 0) refreshOpenList()
+    },
+    [accounts, syncAccountData, fetchScheduledMail, refreshOpenList]
+  )
+
+  const syncSingleAccount = useCallback(
+    async (accountId: string) => {
+      const newMessages = await syncAccountData(accountId)
+      if (newMessages > 0) refreshOpenList(accountId)
+    },
+    [syncAccountData, refreshOpenList]
+  )
 
   useEffect(() => {
     fetchScheduledMail()
@@ -108,7 +127,7 @@ export default function Sidebar() {
   useEffect(() => {
     if (accounts.length === 0) return
     syncAllAccounts()
-    const interval = setInterval(syncAllAccounts, AUTO_SYNC_INTERVAL_MS)
+    const interval = setInterval(() => syncAllAccounts(), AUTO_SYNC_INTERVAL_MS)
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts.length])
@@ -166,7 +185,7 @@ export default function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-header">{t('sidebar.accountsHeader')}</div>
 
-      <button type="button" className="sync-all-btn" disabled={isSyncing || accounts.length === 0} onClick={syncAllAccounts}>
+      <button type="button" className="sync-all-btn" disabled={isSyncing || accounts.length === 0} onClick={() => syncAllAccounts(true)}>
         <span className={isSyncing ? 'sync-icon spinning' : 'sync-icon'}>🔄</span>
         {isSyncing ? t('sidebar.syncing') : t('sidebar.searchUpdates')}
       </button>
@@ -263,6 +282,15 @@ export default function Sidebar() {
                 </button>
                 <span className="account-dot" style={{ backgroundColor: account.color }} />
                 <span className="account-name-text">{account.label}</span>
+                <button
+                  type="button"
+                  className="edit-account-btn sync-account-btn"
+                  title={t('sidebar.syncAccountTitle')}
+                  disabled={syncingAccountIds.includes(account.id)}
+                  onClick={() => syncSingleAccount(account.id)}
+                >
+                  <span className={syncingAccountIds.includes(account.id) ? 'sync-icon spinning' : 'sync-icon'}>🔄</span>
+                </button>
                 <button
                   type="button"
                   className="edit-account-btn"

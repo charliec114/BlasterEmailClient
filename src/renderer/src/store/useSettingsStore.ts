@@ -3,10 +3,11 @@ import type { UpdateCheckResult } from '@shared/types'
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 export type Language = 'es' | 'en'
-export type AiProvider = 'ollama' | 'openai' | 'gemini' | 'anthropic'
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  const message = error instanceof Error ? error.message : String(error)
+  // Los errores de IPC llegan como "Error invoking remote method 'x': Error: <mensaje real>".
+  return message.replace(/^Error invoking remote method '[^']*': (Error: )?/, '')
 }
 
 interface SettingsStore {
@@ -19,16 +20,12 @@ interface SettingsStore {
   updateInfo: UpdateCheckResult | null
   checkingUpdate: boolean
   updateError: string | null
-  aiProvider: AiProvider
   aiStylePrompt: string
-  ollamaBaseUrl: string
-  ollamaModel: string
-  ollamaModels: string[]
-  ollamaError: string | null
-  ollamaLoadingModels: boolean
-  openaiModel: string
-  geminiModel: string
-  anthropicModel: string
+  aiBaseUrl: string
+  aiModel: string
+  aiModels: string[]
+  aiModelsError: string | null
+  aiLoadingModels: boolean
   apiKeyStatus: Record<string, boolean>
   sidebarOrder: string[]
   collapsedAccountIds: string[]
@@ -39,14 +36,10 @@ interface SettingsStore {
   setNotificationsEnabled: (enabled: boolean) => Promise<void>
   loadAppVersion: () => Promise<void>
   checkForUpdate: () => Promise<void>
-  setAiProvider: (provider: AiProvider) => Promise<void>
   setAiStylePrompt: (stylePrompt: string) => Promise<void>
-  setOllamaBaseUrl: (baseUrl: string) => Promise<void>
-  setOllamaModel: (model: string) => Promise<void>
-  refreshOllamaModels: () => Promise<void>
-  setOpenaiModel: (model: string) => Promise<void>
-  setGeminiModel: (model: string) => Promise<void>
-  setAnthropicModel: (model: string) => Promise<void>
+  setAiBaseUrl: (baseUrl: string) => Promise<void>
+  setAiModel: (model: string) => Promise<void>
+  refreshAiModels: () => Promise<void>
   setApiKey: (provider: string, key: string) => Promise<void>
   refreshApiKeyStatus: () => Promise<void>
   setSidebarOrder: (order: string[]) => Promise<void>
@@ -81,16 +74,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   updateInfo: null,
   checkingUpdate: false,
   updateError: null,
-  aiProvider: 'ollama',
   aiStylePrompt: '',
-  ollamaBaseUrl: 'http://localhost:11434/v1',
-  ollamaModel: '',
-  ollamaModels: [],
-  ollamaError: null,
-  ollamaLoadingModels: false,
-  openaiModel: '',
-  geminiModel: '',
-  anthropicModel: '',
+  aiBaseUrl: '',
+  aiModel: '',
+  aiModels: [],
+  aiModelsError: null,
+  aiLoadingModels: false,
   apiKeyStatus: {},
   sidebarOrder: [],
   collapsedAccountIds: [],
@@ -102,25 +91,19 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const notificationsEnabled = all.notificationsEnabled !== 'false'
     applyTheme(theme)
     const language = (all.language as Language | undefined) ?? 'es'
-    const aiProvider = (all.aiProvider as AiProvider | undefined) ?? 'ollama'
     set({
       theme,
       language,
       soundEnabled,
       notificationsEnabled,
       loaded: true,
-      aiProvider,
       aiStylePrompt: all.aiStylePrompt || '',
-      ollamaBaseUrl: all.ollamaBaseUrl || 'http://localhost:11434/v1',
-      ollamaModel: all.ollamaModel || '',
-      openaiModel: all.openaiModel || '',
-      geminiModel: all.geminiModel || '',
-      anthropicModel: all.anthropicModel || '',
+      aiBaseUrl: all.aiBaseUrl || '',
+      aiModel: all.aiModel || '',
       sidebarOrder: parseJsonArray(all.sidebarOrder),
       collapsedAccountIds: parseJsonArray(all.collapsedAccountIds)
     })
-    get().refreshOllamaModels()
-    get().refreshApiKeyStatus()
+    get().refreshApiKeyStatus().then(() => get().refreshAiModels())
     get().loadAppVersion()
     get().checkForUpdate()
   },
@@ -161,49 +144,36 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     }
   },
 
-  setAiProvider: async (provider) => {
-    set({ aiProvider: provider })
-    await window.api.settings.set('aiProvider', provider)
-  },
-
   setAiStylePrompt: async (stylePrompt) => {
     set({ aiStylePrompt: stylePrompt })
     await window.api.settings.set('aiStylePrompt', stylePrompt)
   },
 
-  setOllamaBaseUrl: async (baseUrl) => {
-    set({ ollamaBaseUrl: baseUrl })
-    await window.api.settings.set('ollamaBaseUrl', baseUrl)
+  setAiBaseUrl: async (baseUrl) => {
+    set({ aiBaseUrl: baseUrl })
+    await window.api.settings.set('aiBaseUrl', baseUrl)
   },
 
-  setOllamaModel: async (model) => {
-    set({ ollamaModel: model })
-    await window.api.settings.set('ollamaModel', model)
+  setAiModel: async (model) => {
+    set({ aiModel: model })
+    await window.api.settings.set('aiModel', model)
   },
 
-  refreshOllamaModels: async () => {
-    set({ ollamaLoadingModels: true, ollamaError: null })
-    try {
-      const models = await window.api.ollama.listModels(get().ollamaBaseUrl)
-      set({ ollamaModels: models, ollamaLoadingModels: false })
-    } catch (error) {
-      set({ ollamaModels: [], ollamaError: errorMessage(error), ollamaLoadingModels: false })
+  // Consulta /models de la API configurada para sugerir modelos; si el proveedor no lo expone
+  // (o falla la conexión) el campo de modelo sigue siendo de texto libre.
+  refreshAiModels: async () => {
+    const baseUrl = get().aiBaseUrl.trim()
+    if (!baseUrl) {
+      set({ aiModels: [], aiModelsError: null, aiLoadingModels: false })
+      return
     }
-  },
-
-  setOpenaiModel: async (model) => {
-    set({ openaiModel: model })
-    await window.api.settings.set('openaiModel', model)
-  },
-
-  setGeminiModel: async (model) => {
-    set({ geminiModel: model })
-    await window.api.settings.set('geminiModel', model)
-  },
-
-  setAnthropicModel: async (model) => {
-    set({ anthropicModel: model })
-    await window.api.settings.set('anthropicModel', model)
+    set({ aiLoadingModels: true, aiModelsError: null })
+    try {
+      const models = await window.api.ai.listModels(baseUrl)
+      set({ aiModels: models, aiLoadingModels: false })
+    } catch (error) {
+      set({ aiModels: [], aiModelsError: errorMessage(error), aiLoadingModels: false })
+    }
   },
 
   setApiKey: async (provider, key) => {

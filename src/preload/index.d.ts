@@ -33,7 +33,7 @@ interface BlasterApi {
     connectGoogle: () => Promise<Account>
   }
   mail: {
-    sync: (accountId: string) => Promise<void>
+    sync: (accountId: string) => Promise<number>
     listFolders: (accountId: string) => Promise<MailFolder[]>
     listThreads: (accountId: string, folderId: string) => Promise<Thread[]>
     listUnifiedInbox: () => Promise<Thread[]>
@@ -48,7 +48,7 @@ interface BlasterApi {
     getAll: () => Promise<Record<string, string>>
     set: (key: string, value: string) => Promise<void>
   }
-  ollama: {
+  ai: {
     listModels: (baseUrl: string) => Promise<string[]>
     getSummary: (threadKey: string) => Promise<StoredSummary | null>
     summarizeThread: (threadKey: string, lastMessageDate: string, threadText: string) => Promise<string>

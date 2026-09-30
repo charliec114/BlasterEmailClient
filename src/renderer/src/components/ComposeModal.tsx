@@ -86,7 +86,7 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
     setAssistingSubject(true)
     setError(null)
     try {
-      const result = await window.api.ollama.suggestSubject(draft.context ?? '', htmlToPlainText(body))
+      const result = await window.api.ai.suggestSubject(draft.context ?? '', htmlToPlainText(body))
       setSubject(result)
     } catch (err) {
       setError(errorMessage(err))
@@ -120,7 +120,7 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
     setAssisting(true)
     setError(null)
     try {
-      const result = await window.api.ollama.composeAssist(instruction, draft.context ?? '', htmlToPlainText(body))
+      const result = await window.api.ai.composeAssist(instruction, draft.context ?? '', htmlToPlainText(body))
       setPreviousBody(snapshot)
       setBodyExternally(textToEditorHtml(result))
     } catch (err) {
@@ -240,9 +240,9 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
             </>
           )}
 
-          <label>
+          <div className="compose-body-field">
             <div className="subject-row">
-              <span>{t('composeModal.subject')}</span>
+              <label htmlFor="compose-subject">{t('composeModal.subject')}</label>
               <button
                 type="button"
                 className="ai-inline-btn"
@@ -252,10 +252,12 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
                 {assistingSubject ? t('composeModal.suggestingSubject') : t('composeModal.suggestSubject')}
               </button>
             </div>
-            <input value={subject} onChange={(e) => setSubject(e.target.value)} />
-          </label>
+            <input id="compose-subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
+          </div>
 
-          <label>
+          {/* div y no label: un label reenvía el click del área editable al primer botón que contiene
+              (los de IA), lo que disparaba la asistencia y sacaba el foco del editor. */}
+          <div className="compose-body-field">
             <div className="compose-body-toolbar">
               {draft.context && (
                 <button
@@ -283,7 +285,7 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
               {assisting && <span className="ai-inline-status">{t('composeModal.writing')}</span>}
             </div>
             <RichTextEditor key={bodyVersion} value={body} onChange={setBody} disabled={assisting} />
-          </label>
+          </div>
 
           <div className="attachments-section">
             <button type="button" className="cc-toggle" onClick={handleAttach}>

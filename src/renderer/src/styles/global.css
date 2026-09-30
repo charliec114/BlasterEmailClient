@@ -210,6 +210,19 @@ html::-webkit-scrollbar,
   opacity: 0.6;
 }
 
+.sync-account-btn:disabled {
+  opacity: 0.8;
+}
+
+.sidebar-account:hover .sync-account-btn:not(:disabled) {
+  opacity: 0.6;
+}
+
+.sync-account-btn:disabled,
+.sync-account-btn:hover:not(:disabled) {
+  opacity: 1;
+}
+
 .edit-account-btn:hover {
   opacity: 1 !important;
 }
@@ -281,6 +294,20 @@ html::-webkit-scrollbar,
 .message-list {
   background: var(--bg-list);
   border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.message-list-header,
+.message-list-search {
+  flex-shrink: 0;
+}
+
+.message-list-scroll {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -366,12 +393,15 @@ html::-webkit-scrollbar,
 
 .message-row {
   width: 100%;
+  height: 72px; /* fija: la lista está virtualizada (ROW_HEIGHT en MessageList.tsx) */
+  box-sizing: border-box;
+  overflow: hidden;
   display: block;
   text-align: left;
   background: none;
   border: none;
   border-bottom: 1px solid var(--border-color);
-  padding: 10px 16px;
+  padding: 9px 16px;
   color: var(--text-primary);
 }
 
@@ -912,7 +942,8 @@ html::-webkit-scrollbar,
   gap: 12px;
 }
 
-.form-grid label {
+.form-grid label,
+.form-grid .compose-body-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -2072,4 +2103,10 @@ legend {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.info-tooltip {
+  cursor: help;
+  color: var(--accent);
+  font-size: 13px;
 }

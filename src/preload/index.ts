@@ -36,7 +36,7 @@ const api = {
     connectGoogle: (): Promise<Account> => ipcRenderer.invoke(IPC.accountsConnectGoogle)
   },
   mail: {
-    sync: (accountId: string): Promise<void> => ipcRenderer.invoke(IPC.syncRun, accountId),
+    sync: (accountId: string): Promise<number> => ipcRenderer.invoke(IPC.syncRun, accountId),
     listFolders: (accountId: string): Promise<MailFolder[]> => ipcRenderer.invoke(IPC.mailListFolders, accountId),
     listThreads: (accountId: string, folderId: string): Promise<Thread[]> =>
       ipcRenderer.invoke(IPC.mailListThreads, accountId, folderId),
@@ -56,16 +56,16 @@ const api = {
     getAll: (): Promise<Record<string, string>> => ipcRenderer.invoke(IPC.settingsGetAll),
     set: (key: string, value: string): Promise<void> => ipcRenderer.invoke(IPC.settingsSet, key, value)
   },
-  ollama: {
-    listModels: (baseUrl: string): Promise<string[]> => ipcRenderer.invoke(IPC.ollamaListModels, baseUrl),
+  ai: {
+    listModels: (baseUrl: string): Promise<string[]> => ipcRenderer.invoke(IPC.aiListModels, baseUrl),
     getSummary: (threadKey: string): Promise<StoredSummary | null> =>
-      ipcRenderer.invoke(IPC.ollamaGetSummary, threadKey),
+      ipcRenderer.invoke(IPC.aiGetSummary, threadKey),
     summarizeThread: (threadKey: string, lastMessageDate: string, threadText: string): Promise<string> =>
-      ipcRenderer.invoke(IPC.ollamaSummarizeThread, threadKey, lastMessageDate, threadText),
+      ipcRenderer.invoke(IPC.aiSummarizeThread, threadKey, lastMessageDate, threadText),
     composeAssist: (instruction: string, context: string, currentBody: string): Promise<string> =>
-      ipcRenderer.invoke(IPC.ollamaComposeAssist, instruction, context, currentBody),
+      ipcRenderer.invoke(IPC.aiComposeAssist, instruction, context, currentBody),
     suggestSubject: (context: string, body: string): Promise<string> =>
-      ipcRenderer.invoke(IPC.ollamaSuggestSubject, context, body)
+      ipcRenderer.invoke(IPC.aiSuggestSubject, context, body)
   },
   contacts: {
     search: (query: string): Promise<Contact[]> => ipcRenderer.invoke(IPC.contactsSearch, query),

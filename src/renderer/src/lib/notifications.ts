@@ -14,7 +14,7 @@ export function notifyNewMail(count: number, accountLabel?: string, senderName?:
   const send = (): void => {
     const title = count === 1 ? 'Nuevo correo' : `${count} correos nuevos`
     const body = buildNotificationBody(count, accountLabel, senderName)
-    const notification = new Notification(title, { body, icon: '/icon.png' })
+    const notification = new Notification(title, { body, icon: './icon.png' })
     notification.onclick = () => {
       window.api.app.focusWindow()
     }
