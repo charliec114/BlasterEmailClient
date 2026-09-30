@@ -182,6 +182,23 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
               </button>
             </div>
 
+            {aiModels.length > 0 && (
+              <label>
+                {t('settingsModal.aiAvailableModels', { count: String(aiModels.length) })}
+                <select
+                  value={aiModels.includes(aiModel) ? aiModel : ''}
+                  onChange={(e) => e.target.value && setAiModel(e.target.value)}
+                >
+                  <option value="">{t('settingsModal.aiPickModel')}</option>
+                  {aiModels.map((model) => (
+                    <option key={model} value={model}>
+                      {model}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
             {aiModelsError && <div className="ai-provider-hint">{t('settingsModal.aiModelsError', { error: aiModelsError })}</div>}
 
             <label>

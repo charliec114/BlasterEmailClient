@@ -148,6 +148,8 @@ const es = {
     'Configurá cualquier API compatible con OpenAI — por ejemplo Ollama local. Pasá el mouse por ⓘ para ver más ejemplos.',
   'settingsModal.aiApiExamples':
     'Funciona con cualquier API compatible con OpenAI. Incluí la versión (/v1) en la URL:\n• Ollama — http://localhost:11434/v1 (sin token)\n• LM Studio — http://localhost:1234/v1\n• OpenRouter — https://openrouter.ai/api/v1\n• OpenAI — https://api.openai.com/v1\n• Google Gemini — https://generativelanguage.googleapis.com/v1beta/openai\n• Anthropic — https://api.anthropic.com/v1\n• Groq — https://api.groq.com/openai/v1\n• vLLM, llama.cpp server, MLX, etc.',
+  'settingsModal.aiAvailableModels': 'Modelos disponibles ({{count}})',
+  'settingsModal.aiPickModel': 'Elegí un modelo…',
   'settingsModal.aiApiUrl': 'URL de la API',
   'settingsModal.aiApiToken': 'Token (API key)',
   'settingsModal.aiApiTokenPlaceholder': 'Opcional en servidores locales',
@@ -347,6 +349,8 @@ const en: Record<TranslationKey, string> = {
     'Configure any OpenAI-compatible API — for example a local Ollama. Hover ⓘ for more examples.',
   'settingsModal.aiApiExamples':
     'Works with any OpenAI-compatible API. Include the version (/v1) in the URL:\n• Ollama — http://localhost:11434/v1 (no token)\n• LM Studio — http://localhost:1234/v1\n• OpenRouter — https://openrouter.ai/api/v1\n• OpenAI — https://api.openai.com/v1\n• Google Gemini — https://generativelanguage.googleapis.com/v1beta/openai\n• Anthropic — https://api.anthropic.com/v1\n• Groq — https://api.groq.com/openai/v1\n• vLLM, llama.cpp server, MLX, etc.',
+  'settingsModal.aiAvailableModels': 'Available models ({{count}})',
+  'settingsModal.aiPickModel': 'Pick a model…',
   'settingsModal.aiApiUrl': 'API URL',
   'settingsModal.aiApiToken': 'Token (API key)',
   'settingsModal.aiApiTokenPlaceholder': 'Optional for local servers',
