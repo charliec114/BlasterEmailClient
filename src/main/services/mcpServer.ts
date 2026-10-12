@@ -22,6 +22,7 @@ import { buildPendingDigest } from './pendingDigest'
 import { extractAttachmentText } from './attachmentText'
 import { sendMail } from './mailSend'
 import { cancelScheduledMail, listScheduledMail, scheduleMail } from './scheduledMailRepository'
+import { decodeThreadRef } from '@shared/threadRef'
 import { planReply } from './replyBuilder'
 import { notifyMailChanged, openComposeInWindow } from '../windowManager'
 
@@ -186,16 +187,23 @@ function buildServer(allowSend: boolean): McpServer {
     'get_thread',
     {
       description:
-        'Devuelve un hilo completo con el texto de todos sus mensajes y la lista de adjuntos (usar get_attachment_text para leerlos).',
+        'Devuelve un hilo completo con el texto de todos sus mensajes y la lista de adjuntos (usar get_attachment_text para leerlos). Se identifica con `ref` (el texto "blaster-thread:..." que el usuario copia desde Blaster con el botón "Copiar referencia", usarlo tal cual) o, alternativamente, con accountId + threadId (salen de list_threads / search_threads).',
       inputSchema: {
-        accountId: z.string(),
-        threadId: z.string(),
+        ref: z.string().optional().describe('Referencia "blaster-thread:..." copiada desde la app'),
+        accountId: z.string().optional(),
+        threadId: z.string().optional(),
         maxCharsPerMessage: z.number().int().min(200).optional().describe('Recorta cada cuerpo (por defecto 8000)')
       }
     },
-    async ({ accountId, threadId, maxCharsPerMessage }) => {
-      const thread = getThreadDetail(accountId, threadId)
-      if (!thread) return fail('Hilo no encontrado')
+    async ({ ref, accountId, threadId, maxCharsPerMessage }) => {
+      let target = accountId && threadId ? { accountId, threadId } : null
+      if (ref) {
+        target = decodeThreadRef(ref)
+        if (!target) return fail('La referencia no es válida: tiene que empezar con "blaster-thread:" y estar completa')
+      }
+      if (!target) return fail('Indicá ref, o accountId y threadId')
+      const thread = getThreadDetail(target.accountId, target.threadId)
+      if (!thread) return fail('Hilo no encontrado (¿se borró la cuenta o el hilo?)')
       const max = maxCharsPerMessage ?? 8000
       return text({
         ...threadSummaryRow(thread),

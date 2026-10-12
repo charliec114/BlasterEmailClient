@@ -517,6 +517,17 @@ html::-webkit-scrollbar,
   margin: 0 0 4px;
 }
 
+.reading-pane-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reading-pane-title-row .reply-btn {
+  flex-shrink: 0;
+}
+
 .reading-pane-participants {
   font-size: 12px;
   color: var(--text-secondary);

@@ -7,6 +7,7 @@ import MessageBody from './MessageBody'
 import ThreadSummaryCard from './ThreadSummaryCard'
 import { useT } from '../i18n/useT'
 import type { Message, Participant } from '@shared/types'
+import { encodeThreadRef } from '@shared/threadRef'
 
 function quote(text: string): string {
   return text
@@ -45,6 +46,7 @@ export default function ReadingPane() {
   const fetchThreadDetail = useMailDataStore((s) => s.fetchThreadDetail)
   const markThreadRead = useMailDataStore((s) => s.markThreadRead)
   const openCompose = useComposeStore((s) => s.openCompose)
+  const [refCopied, setRefCopied] = useState(false)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const foundThread =
     (isUnified ? unifiedInboxThreads : threadsByFolder[selectedFolderId ?? ''] ?? []).find((t) => t.id === selectedThreadId) ??
@@ -149,6 +151,13 @@ export default function ReadingPane() {
     return `${lastMessage.from.name}: ${lastMessage.bodyText}`
   }
 
+  function handleCopyRef(): void {
+    navigator.clipboard.writeText(encodeThreadRef(accountId, thread.id)).then(() => {
+      setRefCopied(true)
+      setTimeout(() => setRefCopied(false), 2000)
+    })
+  }
+
   function handleReply(): void {
     openCompose({
       accountId,
@@ -191,7 +200,12 @@ export default function ReadingPane() {
   return (
     <section className="reading-pane">
       <header className="reading-pane-header">
-        <h1>{thread.subject}</h1>
+        <div className="reading-pane-title-row">
+          <h1>{thread.subject}</h1>
+          <button type="button" className="reply-btn" title={t('readingPane.copyRefTitle')} onClick={handleCopyRef}>
+            {refCopied ? t('readingPane.refCopied') : t('readingPane.copyRef')}
+          </button>
+        </div>
         <div className="reading-pane-participants">
           {t('readingPane.participants')} {thread.participants.map((p) => `${p.name} <${p.email}>`).join(', ')}
         </div>

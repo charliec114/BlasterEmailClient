@@ -79,6 +79,7 @@ una experiencia de escritorio nativa, prolija y minimalista, sin resignar dos co
 - La pantalla muestra el comando listo para copiar: `claude mcp add --transport http email <url> --header "Authorization: Bearer <token>"`.
 - Herramientas: cuentas, carpetas, listar/buscar hilos, leer hilos completos, texto de adjuntos, resúmenes
   cacheados, digest por rango de fechas, contactos, sincronizar y marcar como leído.
+- Desde un hilo abierto, **🔗 Copiar referencia** copia un identificador (`blaster-thread:...`) que se pega en el chat de la IA conectada ("mirá este hilo: ...") para que lo lea con `get_thread`.
 - **Enviar y programar correos está apagado por defecto**: hay que habilitarlo aparte en Ajustes.
 
 ### ✍️ Redacción completa
