@@ -73,6 +73,14 @@ una experiencia de escritorio nativa, prolija y minimalista, sin resignar dos co
   adjuntos PDF y de texto plano, y enlaza a los hilos que usó como fuente.
 - El token se guarda cifrado igual que cualquier contraseña de cuenta.
 
+### 🔌 Servidor MCP para Claude Code
+- En **Ajustes → Servidor MCP** se activa un servidor [MCP](https://modelcontextprotocol.io) local (HTTP en
+  `127.0.0.1`, protegido por token) para que Claude Code lea y gestione tus correos mientras Blaster está abierto.
+- La pantalla muestra el comando listo para copiar: `claude mcp add --transport http blaster <url> --header "Authorization: Bearer <token>"`.
+- Herramientas: cuentas, carpetas, listar/buscar hilos, leer hilos completos, texto de adjuntos, resúmenes
+  cacheados, digest por rango de fechas, contactos, sincronizar y marcar como leído.
+- **Enviar y programar correos está apagado por defecto**: hay que habilitarlo aparte en Ajustes.
+
 ### ✍️ Redacción completa
 - Nuevo / Responder / Responder a todos / Reenviar.
 - **Editor de texto enriquecido**: negrita, cursiva, subrayado, listas, links y limpiar formato.

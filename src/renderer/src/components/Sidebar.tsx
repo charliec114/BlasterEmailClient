@@ -118,6 +118,15 @@ export default function Sidebar() {
     fetchScheduledMail()
   }, [fetchScheduledMail])
 
+  // El servidor MCP (Claude Code) puede sincronizar, marcar leído o programar envíos sin pasar por la UI.
+  useEffect(() => {
+    return window.api.mcp.onMailChanged(() => {
+      refreshOpenList()
+      fetchScheduledMail()
+      accounts.forEach((account) => fetchFolders(account.id))
+    })
+  }, [refreshOpenList, fetchScheduledMail, fetchFolders, accounts])
+
   useEffect(() => {
     accounts.forEach((account) => {
       if (!foldersByAccount[account.id]) fetchFolders(account.id)

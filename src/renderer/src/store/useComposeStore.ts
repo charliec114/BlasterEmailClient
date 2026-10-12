@@ -1,19 +1,7 @@
 import { create } from 'zustand'
-import type { AttachmentRef } from '@shared/types'
+import type { ComposeDraft } from '@shared/types'
 
-export interface ComposeDraft {
-  accountId: string
-  to?: string
-  cc?: string
-  bcc?: string
-  subject?: string
-  body?: string
-  bodyHtml?: string
-  inReplyTo?: string
-  references?: string[]
-  attachments?: AttachmentRef[]
-  context?: string
-}
+export type { ComposeDraft }
 
 interface ComposeStore {
   draft: ComposeDraft | null

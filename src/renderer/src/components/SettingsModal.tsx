@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import type { McpInfo } from '@shared/types'
 import { useSettingsStore, type Language, type ThemePreference } from '../store/useSettingsStore'
 import { useT } from '../i18n/useT'
 
@@ -61,6 +62,35 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
       setApiKey(AI_KEY_PROVIDER, apiKeyInput).then(refreshAiModels)
       setApiKeyInput('')
     }
+  }
+
+  const [mcp, setMcp] = useState<McpInfo | null>(null)
+  const [mcpPort, setMcpPort] = useState('')
+  const [mcpCopied, setMcpCopied] = useState(false)
+
+  useEffect(() => {
+    window.api.mcp.getInfo().then((info) => {
+      setMcp(info)
+      setMcpPort(String(info.port))
+    })
+  }, [])
+
+  const updateMcp = useCallback(async (settings: Record<string, string>) => {
+    for (const [key, value] of Object.entries(settings)) await window.api.settings.set(key, value)
+    const info = await window.api.mcp.apply()
+    setMcp(info)
+    setMcpPort(String(info.port))
+  }, [])
+
+  const mcpCommand = mcp
+    ? `claude mcp add --transport http blaster ${mcp.url} --header "Authorization: Bearer ${mcp.token}"`
+    : ''
+
+  const copyMcpCommand = (): void => {
+    navigator.clipboard.writeText(mcpCommand).then(() => {
+      setMcpCopied(true)
+      setTimeout(() => setMcpCopied(false), 2000)
+    })
   }
 
   return (
@@ -210,6 +240,67 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
                 placeholder={t('settingsModal.stylePromptPlaceholder')}
               />
             </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>{t('settingsModal.mcpSection')}</legend>
+            <p className="ai-provider-hint">{t('settingsModal.mcpHint')}</p>
+
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={mcp?.enabled ?? false}
+                disabled={!mcp}
+                onChange={(e) => updateMcp({ mcpEnabled: String(e.target.checked) })}
+              />
+              {t('settingsModal.mcpEnable')}
+            </label>
+
+            {mcp?.enabled && (
+              <>
+                <div className={`ai-provider-status ${mcp.running ? 'ready' : 'not-ready'}`}>
+                  {mcp.error
+                    ? t('settingsModal.mcpError', { error: mcp.error })
+                    : mcp.running
+                      ? t('settingsModal.mcpRunning', { url: mcp.url })
+                      : t('settingsModal.mcpStopped')}
+                </div>
+
+                <label>
+                  {t('settingsModal.mcpPort')}
+                  <input
+                    type="number"
+                    min={1024}
+                    max={65535}
+                    value={mcpPort}
+                    onChange={(e) => setMcpPort(e.target.value)}
+                    onBlur={() => mcpPort !== String(mcp.port) && updateMcp({ mcpPort })}
+                  />
+                </label>
+
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={mcp.allowSend}
+                    onChange={(e) => updateMcp({ mcpAllowSend: String(e.target.checked) })}
+                  />
+                  {t('settingsModal.mcpAllowSend')}
+                </label>
+
+                <label>
+                  {t('settingsModal.mcpCommand')}
+                  <textarea rows={3} readOnly value={mcpCommand} onFocus={(e) => e.target.select()} />
+                </label>
+                <div className="field-row">
+                  <button type="button" className="reply-btn" onClick={copyMcpCommand}>
+                    {mcpCopied ? t('settingsModal.mcpCopied') : t('settingsModal.mcpCopy')}
+                  </button>
+                  <button type="button" className="reply-btn" onClick={() => window.api.mcp.regenerateToken().then(setMcp)}>
+                    {t('settingsModal.mcpRegenerate')}
+                  </button>
+                </div>
+              </>
+            )}
           </fieldset>
 
           <fieldset>

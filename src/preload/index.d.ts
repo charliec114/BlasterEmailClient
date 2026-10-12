@@ -4,6 +4,8 @@ import type {
   AccountInput,
   AttachmentRef,
   Contact,
+  McpInfo,
+  ComposeDraft,
   ConnectionTestResult,
   MailFolder,
   PendingAskInput,
@@ -76,6 +78,13 @@ interface BlasterApi {
     create: (input: ScheduleMailInput) => Promise<ScheduledMail>
     cancel: (id: string) => Promise<void>
     sendNow: (id: string) => Promise<void>
+  }
+  mcp: {
+    getInfo: () => Promise<McpInfo>
+    apply: () => Promise<McpInfo>
+    regenerateToken: () => Promise<McpInfo>
+    onOpenCompose: (callback: (draft: ComposeDraft) => void) => () => void
+    onMailChanged: (callback: () => void) => () => void
   }
 }
 

@@ -36,5 +36,10 @@ export const IPC = {
   scheduledMailList: 'scheduled-mail:list',
   scheduledMailCreate: 'scheduled-mail:create',
   scheduledMailCancel: 'scheduled-mail:cancel',
-  scheduledMailSendNow: 'scheduled-mail:send-now'
+  scheduledMailSendNow: 'scheduled-mail:send-now',
+  mcpGetInfo: 'mcp:get-info',
+  mcpApply: 'mcp:apply',
+  mcpRegenerateToken: 'mcp:regenerate-token',
+  mcpMailChanged: 'mcp:mail-changed',
+  mcpOpenCompose: 'mcp:open-compose'
 } as const

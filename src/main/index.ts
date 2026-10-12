@@ -14,6 +14,8 @@ import { registerPendingIpc } from './ipc/pending'
 import { registerScheduledMailIpc } from './ipc/scheduledMail'
 import { startScheduledMailWatcher } from './services/scheduleService'
 import { backfillContactsFromMessages } from './services/contactsRepository'
+import { registerMcpIpc } from './ipc/mcp'
+import { applyMcpConfig } from './services/mcpServer'
 import { setMainWindow } from './windowManager'
 
 function createWindow(): void {
@@ -78,8 +80,11 @@ app.whenReady().then(() => {
   registerAppIpc()
   registerPendingIpc()
   registerScheduledMailIpc()
+  registerMcpIpc()
 
   startScheduledMailWatcher()
+
+  applyMcpConfig().catch((error) => console.error('No se pudo iniciar el servidor MCP:', error))
 
   // Completa contactos de mensajes que ya estaban en la base antes de esta funcionalidad.
   // Una sola vez por arranque de la app, no en cada sync (ver syncService.ts).

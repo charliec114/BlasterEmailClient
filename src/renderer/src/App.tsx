@@ -20,6 +20,14 @@ function App() {
     loadSettings()
   }, [loadSettings])
 
+  // Borradores que pide el servidor MCP (draft_reply). Si ya hay un redactor abierto no se pisa
+  // lo que el usuario está escribiendo.
+  useEffect(() => {
+    return window.api.mcp.onOpenCompose((incoming) => {
+      if (!useComposeStore.getState().draft) useComposeStore.getState().openCompose(incoming)
+    })
+  }, [])
+
   return (
     <div className="app-shell">
       <Sidebar />

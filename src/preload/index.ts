@@ -6,6 +6,8 @@ import type {
   AccountInput,
   AttachmentRef,
   Contact,
+  McpInfo,
+  ComposeDraft,
   ConnectionTestResult,
   MailFolder,
   PendingAskInput,
@@ -89,6 +91,21 @@ const api = {
     create: (input: ScheduleMailInput): Promise<ScheduledMail> => ipcRenderer.invoke(IPC.scheduledMailCreate, input),
     cancel: (id: string): Promise<void> => ipcRenderer.invoke(IPC.scheduledMailCancel, id),
     sendNow: (id: string): Promise<void> => ipcRenderer.invoke(IPC.scheduledMailSendNow, id)
+  },
+  mcp: {
+    getInfo: (): Promise<McpInfo> => ipcRenderer.invoke(IPC.mcpGetInfo),
+    apply: (): Promise<McpInfo> => ipcRenderer.invoke(IPC.mcpApply),
+    regenerateToken: (): Promise<McpInfo> => ipcRenderer.invoke(IPC.mcpRegenerateToken),
+    onOpenCompose: (callback: (draft: ComposeDraft) => void): (() => void) => {
+      const listener = (_event: unknown, draft: ComposeDraft): void => callback(draft)
+      ipcRenderer.on(IPC.mcpOpenCompose, listener)
+      return () => ipcRenderer.removeListener(IPC.mcpOpenCompose, listener)
+    },
+    onMailChanged: (callback: () => void): (() => void) => {
+      const listener = (): void => callback()
+      ipcRenderer.on(IPC.mcpMailChanged, listener)
+      return () => ipcRenderer.removeListener(IPC.mcpMailChanged, listener)
+    }
   }
 }
 

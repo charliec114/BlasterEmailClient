@@ -170,3 +170,27 @@ export interface ScheduledMail extends ScheduleMailInput {
   error?: string | null
   createdAt: string
 }
+
+export interface McpInfo {
+  enabled: boolean
+  running: boolean
+  port: number
+  url: string
+  token: string
+  allowSend: boolean
+  error: string | null
+}
+
+export interface ComposeDraft {
+  accountId: string
+  to?: string
+  cc?: string
+  bcc?: string
+  subject?: string
+  body?: string
+  bodyHtml?: string
+  inReplyTo?: string
+  references?: string[]
+  attachments?: AttachmentRef[]
+  context?: string
+}
