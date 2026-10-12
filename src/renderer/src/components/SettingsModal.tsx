@@ -83,7 +83,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
   }, [])
 
   const mcpCommand = mcp
-    ? `claude mcp add --transport http blaster ${mcp.url} --header "Authorization: Bearer ${mcp.token}"`
+    ? `claude mcp add --transport http email ${mcp.url} --header "Authorization: Bearer ${mcp.token}"`
     : ''
 
   const copyMcpCommand = (): void => {
