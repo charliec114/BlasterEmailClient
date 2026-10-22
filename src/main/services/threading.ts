@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3'
 import { prepared } from '../db'
 
 const SUBJECT_PREFIX = /^\s*(re|rv|fwd|fw)\s*:\s*/i
+const RETHREAD_CHUNK_SIZE = 200
 const SUBJECT_FALLBACK_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 
 export function normalizeSubject(subject: string): string {
@@ -101,8 +102,8 @@ export function rethreadAccount(db: Database.Database, accountId: string, sinceI
 
   const updateThreadKey = prepared(db, 'UPDATE messages SET thread_key = ? WHERE id = ?')
 
-  const applyAll = db.transaction(() => {
-    for (const row of rows) {
+  const applyChunk = db.transaction((chunk: typeof rows) => {
+    for (const row of chunk) {
       const message: ThreadableMessage = {
         messageId: row.message_id,
         inReplyTo: row.in_reply_to,
@@ -114,5 +115,9 @@ export function rethreadAccount(db: Database.Database, accountId: string, sinceI
     }
   })
 
-  applyAll()
+  // Por lotes y no una transacción gigante: así el lock de escritura se suelta seguido y el
+  // proceso principal no queda esperando a que termine el barrido completo.
+  for (let i = 0; i < rows.length; i += RETHREAD_CHUNK_SIZE) {
+    applyChunk(rows.slice(i, i + RETHREAD_CHUNK_SIZE))
+  }
 }

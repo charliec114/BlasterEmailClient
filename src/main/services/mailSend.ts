@@ -1,7 +1,7 @@
 import { createTransport } from 'nodemailer'
 import MailComposer from 'nodemailer/lib/mail-composer'
 import { getAccountById } from './accountsRepository'
-import { resolveSmtpAuth } from './authResolver'
+import { resolveImapAuth, resolveSmtpAuth } from './authResolver'
 import { stripHtml } from './mailParser'
 import { appendToImapFolder } from './imapSync'
 import { getSentFolderRemotePath } from './mailRepository'
@@ -58,7 +58,7 @@ export async function sendMail(input: SendMailInput): Promise<void> {
       const sentFolderPath = getSentFolderRemotePath(account.id)
       if (sentFolderPath) {
         const rawMessage: Buffer = await new MailComposer(mailOptions).compile().build()
-        await appendToImapFolder(account, sentFolderPath, rawMessage)
+        await appendToImapFolder(account, await resolveImapAuth(account), sentFolderPath, rawMessage)
       }
     } catch (error) {
       console.error('No se pudo guardar la copia enviada en el servidor:', error)

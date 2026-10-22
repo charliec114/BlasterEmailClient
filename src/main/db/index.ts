@@ -1,8 +1,15 @@
 import Database from 'better-sqlite3'
-import { app } from 'electron'
-import { join } from 'path'
-
 let db: Database.Database | null = null
+let dbPath: string | null = null
+let runMigrations = true
+
+// La ruta se inyecta en vez de leerla de `app`: la base también la abre el proceso de
+// sincronización (ver syncProcess.ts), donde `electron` no está disponible. Sólo el proceso
+// principal crea el esquema/migra; el de sync asume que ya existe.
+export function configureDb(path: string, options: { migrate: boolean } = { migrate: true }): void {
+  dbPath = path
+  runMigrations = options.migrate
+}
 let ftsAvailable = false
 
 function ensureColumn(database: Database.Database, table: string, column: string, definition: string): void {
@@ -82,9 +89,11 @@ export function prepared(database: Database.Database, sql: string): Database.Sta
 export function getDb(): Database.Database {
   if (db) return db
 
-  const dbPath = join(app.getPath('userData'), 'blaster.db')
+  if (!dbPath) throw new Error('La base de datos no fue configurada (configureDb)')
   db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
+  // Dos procesos escriben (principal y sync): en vez de fallar con SQLITE_BUSY, esperar el lock.
+  db.pragma('busy_timeout = 15000')
   // Con WAL, synchronous=NORMAL es seguro (no se pierde consistencia, sólo la última
   // transacción ante un corte de luz) y evita un fsync por commit. La base pesa cientos de
   // MB (los bodies van inline), así que además se agranda el cache y se mapea a memoria.
@@ -92,6 +101,8 @@ export function getDb(): Database.Database {
   db.pragma('cache_size = -65536')
   db.pragma('mmap_size = 268435456')
   db.pragma('temp_store = MEMORY')
+
+  if (!runMigrations) return db
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS accounts (

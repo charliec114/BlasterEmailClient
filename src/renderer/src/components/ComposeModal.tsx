@@ -1,15 +1,13 @@
 import { useState } from 'react'
 import { useAccountStore } from '../store/useAccountStore'
-import { useMailDataStore } from '../store/useMailDataStore'
 import { useComposeStore, type ComposeDraft } from '../store/useComposeStore'
-import { useSettingsStore } from '../store/useSettingsStore'
-import { playSentMailSound } from '../lib/sound'
+import { sendInBackground } from '../lib/sendInBackground'
 import { textToEditorHtml, htmlToPlainText } from '../lib/richText'
 import EmailBodyFrame from './EmailBodyFrame'
 import AddressInput from './AddressInput'
 import RichTextEditor from './RichTextEditor'
 import { useT } from '../i18n/useT'
-import type { AttachmentRef } from '@shared/types'
+import type { AttachmentRef, SendMailInput } from '@shared/types'
 
 function parseAddresses(value: string): string[] {
   return value
@@ -67,12 +65,11 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
   const [subject, setSubject] = useState(draft.subject ?? '')
   const [body, setBody] = useState(() => draft.bodyHtml ?? textToEditorHtml(draft.body ?? ''))
   const [bodyVersion, setBodyVersion] = useState(0)
-  const [sending, setSending] = useState(false)
   const [assisting, setAssisting] = useState(false)
   const [previousBody, setPreviousBody] = useState<string | null>(null)
   const [attachments, setAttachments] = useState<AttachmentRef[]>(draft.attachments ?? [])
   const [assistingSubject, setAssistingSubject] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(draft.error ?? null)
   const [showSchedule, setShowSchedule] = useState(false)
   const [customDateTime, setCustomDateTime] = useState('')
   const [scheduling, setScheduling] = useState(false)
@@ -136,30 +133,39 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
     setPreviousBody(null)
   }
 
-  async function handleSend(): Promise<void> {
-    setSending(true)
-    setError(null)
-    try {
-      await window.api.mail.send({
-        accountId,
-        to: parseAddresses(to),
-        cc: parseAddresses(cc),
-        bcc: parseAddresses(bcc),
-        subject,
-        bodyText: htmlToPlainText(body),
-        bodyHtml: body,
-        inReplyTo: draft.inReplyTo,
-        references: draft.references,
-        attachments
-      })
-      if (useSettingsStore.getState().soundEnabled) playSentMailSound()
-      useMailDataStore.getState().syncAccount(accountId)
-      closeCompose()
-    } catch (err) {
-      setError(errorMessage(err))
-    } finally {
-      setSending(false)
+  function buildSendInput(): SendMailInput {
+    return {
+      accountId,
+      to: parseAddresses(to),
+      cc: parseAddresses(cc),
+      bcc: parseAddresses(bcc),
+      subject,
+      bodyText: htmlToPlainText(body),
+      bodyHtml: body,
+      inReplyTo: draft.inReplyTo,
+      references: draft.references,
+      attachments
     }
+  }
+
+  // Cierra el redactor al instante y envía en segundo plano (ver sendInBackground): esperar
+  // acá a que SMTP y la copia en Enviados terminen dejaba la ventana "colgada" varios segundos.
+  function handleSend(): void {
+    const input = buildSendInput()
+    const restore: ComposeDraft = {
+      accountId,
+      to,
+      cc,
+      bcc,
+      subject,
+      bodyHtml: body,
+      inReplyTo: draft.inReplyTo,
+      references: draft.references,
+      attachments,
+      context: draft.context
+    }
+    closeCompose()
+    void sendInBackground(input, restore)
   }
 
   async function handleSchedule(scheduledFor: Date): Promise<void> {
@@ -195,54 +201,56 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
   return (
     <div className="modal-overlay">
       <div className="modal-box compose-box">
-        <div className="modal-header-row">
+        <div className="modal-header-row compose-header">
           <h2>{t('composeModal.newMessageTitle')}</h2>
           <button type="button" className="modal-close-btn" title={t('common.close')} onClick={closeCompose}>
             ✕
           </button>
         </div>
 
-        <div className="form-grid">
-          {accounts.length > 1 && (
-            <label>
-              {t('composeModal.from')}
-              <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.label} ({account.email})
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+        <div className="compose-form">
+          <div className="compose-fields">
+            {accounts.length > 1 && (
+              <div className="compose-row">
+                <span className="compose-row-label">{t('composeModal.from')}</span>
+                <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.label} ({account.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-          <label>
-            {t('composeModal.to')}
-            <AddressInput value={to} onChange={setTo} placeholder={t('composeModal.toPlaceholder')} />
-          </label>
+            <div className="compose-row">
+              <span className="compose-row-label">{t('composeModal.to')}</span>
+              <AddressInput value={to} onChange={setTo} placeholder={t('composeModal.toPlaceholder')} />
+              {!showCc && (
+                <button type="button" className="cc-toggle" onClick={() => setShowCc(true)}>
+                  {t('composeModal.addCcBcc')}
+                </button>
+              )}
+            </div>
 
-          {!showCc && (
-            <button type="button" className="cc-toggle" onClick={() => setShowCc(true)}>
-              {t('composeModal.addCcBcc')}
-            </button>
-          )}
+            {showCc && (
+              <>
+                <div className="compose-row">
+                  <span className="compose-row-label">{t('composeModal.cc')}</span>
+                  <AddressInput value={cc} onChange={setCc} />
+                </div>
+                <div className="compose-row">
+                  <span className="compose-row-label">{t('composeModal.bcc')}</span>
+                  <AddressInput value={bcc} onChange={setBcc} />
+                </div>
+              </>
+            )}
 
-          {showCc && (
-            <>
-              <label>
-                {t('composeModal.cc')}
-                <AddressInput value={cc} onChange={setCc} />
+            <div className="compose-row">
+              <label className="compose-row-label" htmlFor="compose-subject">
+                {t('composeModal.subject')}
               </label>
-              <label>
-                {t('composeModal.bcc')}
-                <AddressInput value={bcc} onChange={setBcc} />
-              </label>
-            </>
-          )}
-
-          <div className="compose-body-field">
-            <div className="subject-row">
-              <label htmlFor="compose-subject">{t('composeModal.subject')}</label>
+              <input id="compose-subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
               <button
                 type="button"
                 className="ai-inline-btn"
@@ -252,7 +260,6 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
                 {assistingSubject ? t('composeModal.suggestingSubject') : t('composeModal.suggestSubject')}
               </button>
             </div>
-            <input id="compose-subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
           </div>
 
           {/* div y no label: un label reenvía el click del área editable al primer botón que contiene
@@ -287,41 +294,40 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
             <RichTextEditor key={bodyVersion} value={body} onChange={setBody} disabled={assisting} />
           </div>
 
-          <div className="attachments-section">
-            <button type="button" className="cc-toggle" onClick={handleAttach}>
-              {t('composeModal.attachFile')}
-            </button>
-            {attachments.length > 0 && (
-              <ul className="attachments-list">
-                {attachments.map((attachment) => (
-                  <li key={attachment.path} className="attachment-row">
-                    <span className="attachment-name">{attachment.name}</span>
-                    <span className="attachment-size">{formatSize(attachment.size)}</span>
-                    <button
-                      type="button"
-                      className="attachment-remove-btn"
-                      title={t('composeModal.removeAttachment')}
-                      onClick={() => removeAttachment(attachment.path)}
-                    >
-                      ✕
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          {attachments.length > 0 && (
+            <ul className="attachments-list compose-attachments">
+              {attachments.map((attachment) => (
+                <li key={attachment.path} className="attachment-row">
+                  <span className="attachment-name">{attachment.name}</span>
+                  <span className="attachment-size">{formatSize(attachment.size)}</span>
+                  <button
+                    type="button"
+                    className="attachment-remove-btn"
+                    title={t('composeModal.removeAttachment')}
+                    onClick={() => removeAttachment(attachment.path)}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
           {signatureHtml && (
-            <div className="signature-preview">
+            <div className="signature-preview compose-signature">
               <div className="signature-preview-label">{t('composeModal.signatureWillBeAdded')}</div>
               <EmailBodyFrame html={signatureHtml} />
             </div>
           )}
         </div>
 
-        {error && <div className="test-fail form-error">{error}</div>}
+        {error && <div className="test-fail form-error compose-error">{error}</div>}
 
-        <div className="modal-actions">
+        <div className="modal-actions compose-actions">
+          <button type="button" className="reply-btn" onClick={handleAttach}>
+            {t('composeModal.attachFile')}
+          </button>
+          <div className="modal-actions-spacer" />
           <button type="button" className="reply-btn" onClick={closeCompose}>
             {t('common.cancel')}
           </button>
@@ -329,15 +335,15 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
             <button
               type="button"
               className="reply-btn ai-btn send-main-btn"
-              disabled={!isValid || sending || scheduling}
+              disabled={!isValid || scheduling}
               onClick={handleSend}
             >
-              {sending ? t('composeModal.sending') : t('composeModal.send')}
+              {t('composeModal.send')}
             </button>
             <button
               type="button"
               className="reply-btn ai-btn send-caret-btn"
-              disabled={!isValid || sending || scheduling}
+              disabled={!isValid || scheduling}
               title={t('composeModal.scheduleSend')}
               onClick={() => setShowSchedule((v) => !v)}
             >

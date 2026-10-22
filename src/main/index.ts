@@ -13,7 +13,9 @@ import { registerAppIpc } from './ipc/app'
 import { registerPendingIpc } from './ipc/pending'
 import { registerScheduledMailIpc } from './ipc/scheduledMail'
 import { startScheduledMailWatcher } from './services/scheduleService'
-import { backfillContactsFromMessages } from './services/contactsRepository'
+import { backfillContactsInBackground } from './services/syncService'
+import { stopSyncProcess } from './services/syncClient'
+import { configureDb } from './db'
 import { registerMcpIpc } from './ipc/mcp'
 import { applyMcpConfig } from './services/mcpServer'
 import { setMainWindow } from './windowManager'
@@ -62,6 +64,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  configureDb(join(app.getPath('userData'), 'blaster.db'))
   electronApp.setAppUserModelId('ar.com.blaster.emailclient')
 
   app.on('browser-window-created', (_, window) => {
@@ -87,12 +90,13 @@ app.whenReady().then(() => {
   applyMcpConfig().catch((error) => console.error('No se pudo iniciar el servidor MCP:', error))
 
   // Completa contactos de mensajes que ya estaban en la base antes de esta funcionalidad.
-  // Una sola vez por arranque de la app, no en cada sync (ver syncService.ts).
-  try {
-    backfillContactsFromMessages()
-  } catch (error) {
-    console.error('No se pudieron completar los contactos existentes:', error)
-  }
+  // Una sola vez por arranque, en el proceso de sync (ver syncProcess.ts) y con la ventana ya
+  // creada, para que no demore ni bloquee el arranque.
+  setTimeout(() => {
+    backfillContactsInBackground().catch((error) =>
+      console.error('No se pudieron completar los contactos existentes:', error)
+    )
+  }, 5000)
 
   createWindow()
 
@@ -100,6 +104,8 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
+app.on('will-quit', stopSyncProcess)
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

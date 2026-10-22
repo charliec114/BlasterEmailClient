@@ -1035,22 +1035,140 @@ html::-webkit-scrollbar,
 }
 
 .compose-box {
-  width: 660px;
+  width: min(1120px, 94vw);
+  height: min(92vh, 980px);
+  max-height: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.compose-header {
+  align-items: center;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.compose-header h2 {
+  margin: 0;
+}
+
+/* El formulario ocupa todo el alto disponible: el editor crece con la ventana y sólo
+   scrollea el formulario entero cuando hay demasiado contenido (adjuntos, firma). */
+.compose-form {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 24px 12px;
+  overflow-y: auto;
+}
+
+.compose-fields {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.compose-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+}
+
+.compose-row-label {
+  width: 56px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.compose-row input,
+.compose-row select {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 8px 0;
+}
+
+.compose-row select {
+  cursor: pointer;
+}
+
+.compose-row select option {
+  background: var(--bg-list);
+}
+
+.compose-row .address-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.compose-row .cc-toggle,
+.compose-row .ai-inline-btn {
+  align-self: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.compose-body-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 0 280px;
+  min-height: 280px;
+}
+
+.compose-body-field .rte {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.compose-attachments,
+.compose-signature {
+  flex-shrink: 0;
+}
+
+.compose-signature {
+  max-height: 96px;
+  overflow-y: auto;
+}
+
+.compose-error {
+  margin: 0 24px;
+}
+
+.compose-actions {
+  margin: 0;
+  padding: 12px 24px;
+  border-top: 1px solid var(--border-color);
 }
 
 .compose-body {
   font-family: inherit;
-  font-size: 13px;
   color: var(--text-primary);
   background: var(--bg-list);
   border: 1px solid var(--border-color);
   border-top: none;
   border-radius: 0 0 8px 8px;
   padding: 10px 12px;
-  min-height: 220px;
-  max-height: 420px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.55;
   cursor: text;
 }
 
@@ -2120,4 +2238,64 @@ legend {
   cursor: help;
   color: var(--accent);
   font-size: 13px;
+}
+
+/* Avisos efímeros (ej. envío de mensajes en segundo plano) */
+
+.toaster {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: min(560px, 92vw);
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-reading);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+}
+
+.toast-success {
+  border-left-color: #30d158;
+}
+
+.toast-error {
+  border-left-color: #ff375f;
+}
+
+.toast-message {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.toast-action {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 0;
 }

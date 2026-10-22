@@ -193,4 +193,6 @@ export interface ComposeDraft {
   references?: string[]
   attachments?: AttachmentRef[]
   context?: string
+  // Se setea al reabrir un borrador cuyo envío falló, para mostrar el motivo.
+  error?: string
 }

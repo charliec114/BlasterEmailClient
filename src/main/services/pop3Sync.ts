@@ -2,10 +2,11 @@ import Pop3Command from 'node-pop3'
 import { getDb } from '../db'
 import { parseRawMessage, type ParsedMessage } from './mailParser'
 import { insertMessage, listRemoteUidsForFolder, upsertFolder } from './mailRepository'
-import { getIncomingPassword } from './accountsRepository'
 import type { Account } from '@shared/types'
 
-export async function syncPop3Account(account: Account): Promise<number> {
+const INSERT_BATCH_SIZE = 20
+
+export async function syncPop3Account(account: Account, password: string): Promise<number> {
   const folderId = upsertFolder(account.id, 'INBOX', 'Bandeja de entrada', 'inbox')
   const existingUids = listRemoteUidsForFolder(folderId)
 
@@ -14,32 +15,33 @@ export async function syncPop3Account(account: Account): Promise<number> {
     port: account.incoming.port,
     tls: account.incoming.secure,
     user: account.incoming.username,
-    password: getIncomingPassword(account.id)
+    password
   })
 
-  // Igual que en IMAP: se trae y parsea todo primero, y los INSERT van todos juntos en una
-  // sola transacción al final, en vez de un commit de SQLite por mensaje nuevo.
-  const fetched: { uid: string; parsed: ParsedMessage }[] = []
+  // Igual que en IMAP: los INSERT van en transacciones por lotes, no un commit por mensaje.
+  let newCount = 0
+  let batch: { uid: string; parsed: ParsedMessage }[] = []
+  const flush = getDb().transaction((items: { uid: string; parsed: ParsedMessage }[]) => {
+    for (const item of items) {
+      if (insertMessage(account.id, folderId, item.uid, item.parsed, false, false)) newCount++
+    }
+  })
+
   try {
     const entries = (await pop3.UIDL()) as string[][]
     for (const [msgNum, uid] of entries) {
       if (existingUids.has(uid)) continue
       const raw = await pop3.RETR(Number(msgNum))
-      const parsed = await parseRawMessage(raw)
-      fetched.push({ uid, parsed })
+      batch.push({ uid, parsed: await parseRawMessage(raw) })
+      if (batch.length >= INSERT_BATCH_SIZE) {
+        flush(batch)
+        batch = []
+      }
     }
   } finally {
     await pop3.QUIT()
   }
-
-  let newCount = 0
-  const insertAll = getDb().transaction(() => {
-    for (const item of fetched) {
-      const inserted = insertMessage(account.id, folderId, item.uid, item.parsed, false, false)
-      if (inserted) newCount++
-    }
-  })
-  insertAll()
+  if (batch.length > 0) flush(batch)
 
   return newCount
 }
