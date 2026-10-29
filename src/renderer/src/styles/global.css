@@ -1302,6 +1302,10 @@ html::-webkit-scrollbar,
   max-width: 90vw;
 }
 
+.settings-box {
+  width: min(820px, 94vw);
+}
+
 /* Assistant panel — ocupa el lugar de message-list + reading-pane (columnas 2 y 3) */
 
 .assistant-panel {

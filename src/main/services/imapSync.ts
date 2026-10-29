@@ -2,9 +2,16 @@ import { ImapFlow } from 'imapflow'
 import { getDb } from '../db'
 import { parseRawMessage, type ParsedMessage } from './mailParser'
 import { mapFolderKind, SYNCED_FOLDER_KINDS } from './folderMapping'
-import { getFolderLastSyncedUid, insertMessage, markFolderSynced, upsertFolder } from './mailRepository'
+import {
+  deleteMessagesByRemoteUid,
+  getFolderLastSyncedUid,
+  insertMessage,
+  listRemoteUidsForFolder,
+  markFolderSynced,
+  upsertFolder
+} from './mailRepository'
 import type { ResolvedAuth } from './authResolver'
-import type { Account } from '@shared/types'
+import type { Account, MailFolder } from '@shared/types'
 
 const INITIAL_SYNC_LIMIT = 50
 const INSERT_BATCH_SIZE = 20
@@ -28,9 +35,27 @@ interface FetchedMessage {
   isFlagged: boolean
 }
 
-async function syncFolder(client: ImapFlow, accountId: string, folderId: string, path: string): Promise<number> {
+// Quita de la base local lo que el servidor ya no tiene (enviado, borrado o movido desde otro
+// cliente). El sync incremental por UID solo ve mensajes nuevos, así que sin esto un borrador
+// autoguardado de Gmail quedaba para siempre como un mensaje fantasma en el hilo.
+async function removeVanishedMessages(client: ImapFlow, folderId: string): Promise<void> {
+  const serverUids = await client.search({ all: true }, { uid: true })
+  if (!serverUids) return
+  const onServer = new Set(serverUids.map(String))
+  const gone = [...listRemoteUidsForFolder(folderId)].filter((uid) => !onServer.has(uid))
+  deleteMessagesByRemoteUid(folderId, gone)
+}
+
+async function syncFolder(
+  client: ImapFlow,
+  accountId: string,
+  folderId: string,
+  path: string,
+  kind: MailFolder['kind']
+): Promise<number> {
   const mailbox = await client.mailboxOpen(path, { readOnly: true })
   if (mailbox.exists === 0) {
+    deleteMessagesByRemoteUid(folderId, [...listRemoteUidsForFolder(folderId)])
     await client.mailboxClose()
     return 0
   }
@@ -54,6 +79,11 @@ async function syncFolder(client: ImapFlow, accountId: string, folderId: string,
 
   for await (const message of client.fetch(range, { uid: true, source: true, flags: true }, { uid: useUid })) {
     if (!message.source) continue
+    // Gmail guarda cada autoguardado de un borrador también en "Todos"; solo cuentan en Borradores.
+    if (kind !== 'drafts' && message.flags?.has('\\Draft')) {
+      if (message.uid > maxUid) maxUid = message.uid
+      continue
+    }
     const parsed = await parseRawMessage(message.source)
     batch.push({
       remoteUid: String(message.uid),
@@ -69,6 +99,7 @@ async function syncFolder(client: ImapFlow, accountId: string, folderId: string,
   }
   if (batch.length > 0) flush(batch)
 
+  await removeVanishedMessages(client, folderId)
   markFolderSynced(folderId, String(maxUid))
   await client.mailboxClose()
   return newCount
@@ -89,7 +120,7 @@ export async function syncImapAccount(account: Account, auth: ResolvedAuth): Pro
       if (!SYNCED_FOLDER_KINDS.has(kind)) continue
 
       const folderId = upsertFolder(account.id, mailbox.path, mailbox.name, kind)
-      newCount += await syncFolder(client, account.id, folderId, mailbox.path)
+      newCount += await syncFolder(client, account.id, folderId, mailbox.path, kind)
     }
   } finally {
     await client.logout()

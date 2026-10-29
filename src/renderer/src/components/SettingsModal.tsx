@@ -95,7 +95,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-box">
+      <div className="modal-box settings-box">
         <div className="modal-header-row">
           <h2>{t('settingsModal.title')}</h2>
           <button type="button" className="modal-close-btn" title={t('common.close')} onClick={onClose}>

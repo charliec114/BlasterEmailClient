@@ -162,6 +162,27 @@ export function listRemoteUidsForFolder(folderId: string): Set<string> {
   return new Set(rows.map((row) => row.remote_uid))
 }
 
+// Borra los mensajes que ya no existen en el servidor (p. ej. el borrador autoguardado que Gmail
+// reemplaza al enviar). Devuelve cuántos quitó.
+export function deleteMessagesByRemoteUid(folderId: string, remoteUids: string[]): number {
+  if (remoteUids.length === 0) return 0
+  const db = getDb()
+  const findId = db.prepare('SELECT id FROM messages WHERE folder_id = ? AND remote_uid = ?')
+  const deleteAttachments = db.prepare('DELETE FROM attachments WHERE message_id = ?')
+  const deleteMessage = db.prepare('DELETE FROM messages WHERE id = ?')
+  let removed = 0
+  db.transaction(() => {
+    for (const uid of remoteUids) {
+      const row = findId.get(folderId, uid) as { id: string } | undefined
+      if (!row) continue
+      deleteAttachments.run(row.id)
+      deleteMessage.run(row.id)
+      removed++
+    }
+  })()
+  return removed
+}
+
 export function insertMessage(
   accountId: string,
   folderId: string,
