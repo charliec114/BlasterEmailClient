@@ -5,6 +5,7 @@ import ReadingPane from './components/ReadingPane'
 import AssistantPanel from './components/AssistantPanel'
 import ScheduledPanel from './components/ScheduledPanel'
 import ComposeModal from './components/ComposeModal'
+import UpdateModal from './components/UpdateModal'
 import Toaster from './components/Toaster'
 import { useComposeStore } from './store/useComposeStore'
 import { useSettingsStore } from './store/useSettingsStore'
@@ -43,6 +44,7 @@ function App() {
         </>
       )}
       {draft && <ComposeModal draft={draft} />}
+      <UpdateModal />
       <Toaster />
     </div>
   )

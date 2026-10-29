@@ -191,6 +191,10 @@ const es = {
   'settingsModal.checkingUpdate': 'Buscando...',
   'settingsModal.upToDate': '✓ Estás en la última versión',
   'settingsModal.updateAvailable': '⚠ Hay una versión nueva: v{{version}}',
+  'updateModal.title': 'Hay una versión nueva',
+  'updateModal.body': 'Está disponible la versión {{latest}} (estás usando la {{current}}).',
+  'updateModal.later': 'Más tarde',
+  'updateModal.download': 'Ver descarga',
   'settingsModal.updateCheckError': 'No se pudo buscar actualizaciones — {{error}}',
 
   'threadSummaryCard.label': '✨ Resumen con IA',
@@ -412,6 +416,10 @@ const en: Record<TranslationKey, string> = {
   'settingsModal.checkingUpdate': 'Checking...',
   'settingsModal.upToDate': "✓ You're on the latest version",
   'settingsModal.updateAvailable': '⚠ A new version is available: v{{version}}',
+  'updateModal.title': 'A new version is available',
+  'updateModal.body': 'Version {{latest}} is available (you are using {{current}}).',
+  'updateModal.later': 'Later',
+  'updateModal.download': 'View download',
   'settingsModal.updateCheckError': "Couldn't check for updates — {{error}}",
 
   'threadSummaryCard.label': '✨ AI summary',

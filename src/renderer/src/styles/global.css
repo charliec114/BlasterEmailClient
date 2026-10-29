@@ -2037,6 +2037,20 @@ legend {
   gap: 8px;
 }
 
+.update-modal {
+  width: 400px;
+}
+
+.update-modal p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.update-modal-download {
+  text-decoration: none;
+}
+
 .modal-actions-spacer {
   flex: 1;
 }
