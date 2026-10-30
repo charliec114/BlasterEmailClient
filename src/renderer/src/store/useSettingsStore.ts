@@ -20,6 +20,7 @@ interface SettingsStore {
   updateInfo: UpdateCheckResult | null
   checkingUpdate: boolean
   updateError: string | null
+  updateDismissed: boolean
   aiStylePrompt: string
   aiBaseUrl: string
   aiModel: string
@@ -36,6 +37,7 @@ interface SettingsStore {
   setNotificationsEnabled: (enabled: boolean) => Promise<void>
   loadAppVersion: () => Promise<void>
   checkForUpdate: () => Promise<void>
+  dismissUpdate: () => void
   setAiStylePrompt: (stylePrompt: string) => Promise<void>
   setAiBaseUrl: (baseUrl: string) => Promise<void>
   setAiModel: (model: string) => Promise<void>
@@ -74,6 +76,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   updateInfo: null,
   checkingUpdate: false,
   updateError: null,
+  updateDismissed: false,
   aiStylePrompt: '',
   aiBaseUrl: '',
   aiModel: '',
@@ -143,6 +146,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       set({ updateError: errorMessage(error), checkingUpdate: false })
     }
   },
+
+  dismissUpdate: () => set({ updateDismissed: true }),
 
   setAiStylePrompt: async (stylePrompt) => {
     set({ aiStylePrompt: stylePrompt })

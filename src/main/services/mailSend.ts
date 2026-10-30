@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { createTransport } from 'nodemailer'
 import MailComposer from 'nodemailer/lib/mail-composer'
 import { getAccountById } from './accountsRepository'
@@ -29,7 +30,10 @@ export async function sendMail(input: SendMailInput): Promise<void> {
   const text = signatureHtml ? `${input.bodyText}\n\n--\n${stripHtml(signatureHtml)}` : input.bodyText
   const html = signatureHtml ? `${bodyHtml}<br><br>${signatureHtml}` : bodyHtml
 
+  // Mismo Message-ID para el envío SMTP y la copia que se sube a Enviados: si no, cada uno genera
+  // el suyo y quedan como dos mensajes distintos en el hilo.
   const mailOptions = {
+    messageId: `<${randomUUID()}@${account.email.split('@')[1] ?? 'localhost'}>`,
     from: { name: account.displayName, address: account.email },
     to: input.to,
     cc: input.cc.length ? input.cc : undefined,
@@ -53,7 +57,9 @@ export async function sendMail(input: SendMailInput): Promise<void> {
 
   await transporter.sendMail(mailOptions)
 
-  if (account.protocol === 'imap') {
+  // Gmail ya guarda en Enviados todo lo que sale por su SMTP; subir otra copia la duplica.
+  const savesSentCopyItself = /(^|\.)(gmail|googlemail)\.com$/i.test(account.outgoing.host)
+  if (account.protocol === 'imap' && !savesSentCopyItself) {
     try {
       const sentFolderPath = getSentFolderRemotePath(account.id)
       if (sentFolderPath) {
