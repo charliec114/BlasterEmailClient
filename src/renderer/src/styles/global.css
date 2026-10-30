@@ -988,6 +988,36 @@ html::-webkit-scrollbar,
   resize: vertical;
 }
 
+.account-box {
+  width: min(900px, 94vw);
+}
+
+.account-box .form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 20px;
+  align-items: start;
+}
+
+.account-box .form-grid > fieldset {
+  min-width: 0;
+  margin: 0;
+}
+
+.account-box .form-grid > fieldset:last-child {
+  grid-column: 1 / -1;
+}
+
+.account-box .form-grid > .protocol-toggle {
+  align-self: end;
+}
+
+@media (max-width: 720px) {
+  .account-box .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .provider-picker {
   width: 380px;
 }

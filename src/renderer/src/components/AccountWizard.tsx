@@ -269,7 +269,7 @@ export default function AccountWizard({ editingAccount, onClose }: AccountWizard
 
   return (
     <div className="modal-overlay">
-      <div className="modal-box">
+      <div className="modal-box account-box">
         <div className="modal-header-row">
           <h2>{isEditing ? t('accountWizard.editTitle') : t('accountWizard.addTitle')}</h2>
           <div className="modal-header-actions">
