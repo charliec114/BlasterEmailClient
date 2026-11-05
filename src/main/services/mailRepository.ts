@@ -133,15 +133,28 @@ export function getFolderRemotePath(folderId: string): string {
   return row.remote_path
 }
 
-export function markThreadReadLocal(folderId: string, threadKey: string): string[] {
+// Un hilo puede tener copias en varias carpetas (p. ej. INBOX y "Todos" en Gmail, o respuestas en
+// Enviados), así que se marca leído en todas las de la cuenta y se devuelven los UIDs agrupados
+// por ruta remota para avisarle a cada carpeta del servidor.
+export function markThreadReadLocal(accountId: string, threadKey: string): { remotePath: string; uids: string[] }[] {
   const db = getDb()
   const rows = db
-    .prepare('SELECT remote_uid FROM messages WHERE folder_id = ? AND thread_key = ? AND is_read = 0')
-    .all(folderId, threadKey) as { remote_uid: string }[]
+    .prepare(
+      `SELECT f.remote_path AS remote_path, m.remote_uid AS remote_uid
+       FROM messages m JOIN folders f ON f.id = m.folder_id
+       WHERE m.account_id = ? AND m.thread_key = ? AND m.is_read = 0`
+    )
+    .all(accountId, threadKey) as { remote_path: string; remote_uid: string }[]
 
-  db.prepare('UPDATE messages SET is_read = 1 WHERE folder_id = ? AND thread_key = ?').run(folderId, threadKey)
+  db.prepare('UPDATE messages SET is_read = 1 WHERE account_id = ? AND thread_key = ?').run(accountId, threadKey)
 
-  return rows.map((row) => row.remote_uid)
+  const byPath = new Map<string, string[]>()
+  for (const row of rows) {
+    const list = byPath.get(row.remote_path)
+    if (list) list.push(row.remote_uid)
+    else byPath.set(row.remote_path, [row.remote_uid])
+  }
+  return Array.from(byPath, ([remotePath, uids]) => ({ remotePath, uids }))
 }
 
 export function markFolderReadLocal(folderId: string): string[] {

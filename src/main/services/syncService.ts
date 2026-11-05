@@ -19,18 +19,19 @@ export function backfillContactsInBackground(): Promise<number> {
   return runInSyncProcess({ task: 'backfillContacts' })
 }
 
-export async function markThreadRead(accountId: string, folderId: string, threadKey: string): Promise<void> {
-  const remoteUids = markThreadReadLocal(folderId, threadKey)
-  if (remoteUids.length === 0) return
+export async function markThreadRead(accountId: string, _folderId: string, threadKey: string): Promise<void> {
+  const groups = markThreadReadLocal(accountId, threadKey)
+  if (groups.length === 0) return
 
   const account = getAccountById(accountId)
   if (account.protocol !== 'imap') return
 
-  try {
-    const remotePath = getFolderRemotePath(folderId)
-    await markSeenOnImapServer(account, await resolveImapAuth(account), remotePath, remoteUids)
-  } catch (error) {
-    console.error('No se pudo marcar como leído en el servidor IMAP:', error)
+  for (const { remotePath, uids } of groups) {
+    try {
+      await markSeenOnImapServer(account, await resolveImapAuth(account), remotePath, uids)
+    } catch (error) {
+      console.error(`No se pudo marcar como leído en el servidor IMAP (${remotePath}):`, error)
+    }
   }
 }
 
