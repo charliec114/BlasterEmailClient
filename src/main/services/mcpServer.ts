@@ -21,6 +21,7 @@ import { getThreadSummary } from './summaryRepository'
 import { buildPendingDigest } from './pendingDigest'
 import { extractAttachmentText } from './attachmentText'
 import { sendMail } from './mailSend'
+import { stripHtml } from './mailParser'
 import { cancelScheduledMail, listScheduledMail, scheduleMail } from './scheduledMailRepository'
 import { mkdtempSync, statSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
@@ -114,13 +115,26 @@ function page(threads: Thread[], limit: number | undefined, offset: number | und
 
 const addressList = z.array(z.string().email()).describe('Direcciones de email')
 
+const bodyHtmlField = z
+  .string()
+  .optional()
+  .describe(
+    'Cuerpo en HTML (p. ej. <p>, <strong>, <a>, <ul>, <table>). Si se pasa, se usa como cuerpo en lugar de bodyText, que queda como versión de texto plano (si se omite se deriva del HTML)'
+  )
+
+// Texto plano alternativo: el provisto, o derivado del HTML si sólo vino éste.
+function plainTextFor(bodyText: string, bodyHtml: string | undefined): string {
+  return bodyText || (bodyHtml ? stripHtml(bodyHtml) : '')
+}
+
 const sendFields = {
   accountId: z.string().describe('ID de la cuenta desde la que se envía (ver list_accounts)'),
   to: addressList.min(1),
   cc: addressList.default([]),
   bcc: addressList.default([]),
   subject: z.string(),
-  bodyText: z.string().describe('Cuerpo en texto plano (la firma de la cuenta se agrega sola)'),
+  bodyText: z.string().default('').describe('Cuerpo en texto plano (la firma de la cuenta se agrega sola). Opcional si se pasa bodyHtml'),
+  bodyHtml: bodyHtmlField,
   inReplyTo: z.string().optional().describe('messageId del mensaje al que se responde, para mantener el hilo'),
   references: z.array(z.string()).optional()
 }
@@ -419,12 +433,13 @@ function buildServer(allowSend: boolean): McpServer {
         cc: addressList.default([]),
         bcc: addressList.default([]),
         subject: z.string().default(''),
-        bodyText: z.string().default('').describe('Cuerpo en texto plano'),
+        bodyText: z.string().default('').describe('Cuerpo en texto plano. Para formato rico usar bodyHtml'),
+        bodyHtml: bodyHtmlField,
         attachments: z.array(draftAttachment).default([]),
         scheduledFor: scheduledForField
       }
     },
-    async ({ accountId, to, cc, bcc, subject, bodyText, attachments, scheduledFor }) => {
+    async ({ accountId, to, cc, bcc, subject, bodyText, bodyHtml, attachments, scheduledFor }) => {
       const invalid = checkScheduledFor(scheduledFor)
       if (invalid) return fail(invalid)
       let resolved: AttachmentRef[]
@@ -439,7 +454,8 @@ function buildServer(allowSend: boolean): McpServer {
         cc: cc.length ? cc.join(', ') : undefined,
         bcc: bcc.length ? bcc.join(', ') : undefined,
         subject,
-        body: bodyText,
+        body: plainTextFor(bodyText, bodyHtml),
+        bodyHtml,
         attachments: resolved.length ? resolved : undefined,
         scheduledFor
       })
@@ -510,7 +526,7 @@ function buildServer(allowSend: boolean): McpServer {
         inputSchema: sendFields
       },
       async (input) => {
-        await sendMail({ ...input, attachments: [] })
+        await sendMail({ ...input, bodyText: plainTextFor(input.bodyText, input.bodyHtml), attachments: [] })
         notifyMailChanged()
         return text(`Correo enviado a ${input.to.join(', ')}.`)
       }
@@ -555,7 +571,7 @@ function buildServer(allowSend: boolean): McpServer {
       },
       async (input) => {
         if (Number.isNaN(Date.parse(input.scheduledFor))) return fail('scheduledFor no es una fecha válida')
-        const scheduled = scheduleMail({ ...input, attachments: [] })
+        const scheduled = scheduleMail({ ...input, bodyText: plainTextFor(input.bodyText, input.bodyHtml), attachments: [] })
         notifyMailChanged()
         return text({ id: scheduled.id, scheduledFor: scheduled.scheduledFor, status: scheduled.status })
       }
