@@ -41,6 +41,15 @@ function nextMondayAt(hour: number): Date {
   return d
 }
 
+// ISO 8601 -> valor de <input type="datetime-local"> en hora local ('' si no es una fecha válida).
+function isoToDateTimeLocal(iso: string | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 function minDateTimeLocal(): string {
   const d = new Date(Date.now() + 60_000)
   d.setSeconds(0, 0)
@@ -70,8 +79,10 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
   const [attachments, setAttachments] = useState<AttachmentRef[]>(draft.attachments ?? [])
   const [assistingSubject, setAssistingSubject] = useState(false)
   const [error, setError] = useState<string | null>(draft.error ?? null)
-  const [showSchedule, setShowSchedule] = useState(false)
-  const [customDateTime, setCustomDateTime] = useState('')
+  // Un borrador del MCP con scheduledFor abre el menú de programar con la fecha ya cargada: el
+  // usuario revisa el correo y confirma con un clic.
+  const [customDateTime, setCustomDateTime] = useState(() => isoToDateTimeLocal(draft.scheduledFor))
+  const [showSchedule, setShowSchedule] = useState(() => isoToDateTimeLocal(draft.scheduledFor) !== '')
   const [scheduling, setScheduling] = useState(false)
 
   function setBodyExternally(html: string): void {

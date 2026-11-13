@@ -83,7 +83,8 @@ interface BlasterApi {
     getInfo: () => Promise<McpInfo>
     apply: () => Promise<McpInfo>
     regenerateToken: () => Promise<McpInfo>
-    onOpenCompose: (callback: (draft: ComposeDraft) => void) => () => void
+    takeNextDraft: () => Promise<ComposeDraft | null>
+    onDraftsChanged: (callback: () => void) => () => void
     onMailChanged: (callback: () => void) => () => void
   }
 }

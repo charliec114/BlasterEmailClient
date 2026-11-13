@@ -96,10 +96,11 @@ const api = {
     getInfo: (): Promise<McpInfo> => ipcRenderer.invoke(IPC.mcpGetInfo),
     apply: (): Promise<McpInfo> => ipcRenderer.invoke(IPC.mcpApply),
     regenerateToken: (): Promise<McpInfo> => ipcRenderer.invoke(IPC.mcpRegenerateToken),
-    onOpenCompose: (callback: (draft: ComposeDraft) => void): (() => void) => {
-      const listener = (_event: unknown, draft: ComposeDraft): void => callback(draft)
-      ipcRenderer.on(IPC.mcpOpenCompose, listener)
-      return () => ipcRenderer.removeListener(IPC.mcpOpenCompose, listener)
+    takeNextDraft: (): Promise<ComposeDraft | null> => ipcRenderer.invoke(IPC.mcpTakeNextDraft),
+    onDraftsChanged: (callback: () => void): (() => void) => {
+      const listener = (): void => callback()
+      ipcRenderer.on(IPC.mcpDraftsChanged, listener)
+      return () => ipcRenderer.removeListener(IPC.mcpDraftsChanged, listener)
     },
     onMailChanged: (callback: () => void): (() => void) => {
       const listener = (): void => callback()

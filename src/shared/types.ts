@@ -193,6 +193,8 @@ export interface ComposeDraft {
   references?: string[]
   attachments?: AttachmentRef[]
   context?: string
+  // ISO 8601: si viene, el redactor abre con el envío programado para esa fecha, listo para confirmar.
+  scheduledFor?: string
   // Se setea al reabrir un borrador cuyo envío falló, para mostrar el motivo.
   error?: string
 }

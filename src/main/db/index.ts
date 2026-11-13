@@ -255,6 +255,13 @@ export function getDb(): Database.Database {
       created_at TEXT NOT NULL
     )
   `)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mcp_draft_queue (
+      id TEXT PRIMARY KEY,
+      draft_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_scheduled_messages_status ON scheduled_messages(status, scheduled_for)`)
 
   return db

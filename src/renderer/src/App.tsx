@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import type { ComposeDraft } from '@shared/types'
 import Sidebar from './components/Sidebar'
 import MessageList from './components/MessageList'
 import ReadingPane from './components/ReadingPane'
@@ -22,13 +23,22 @@ function App() {
     loadSettings()
   }, [loadSettings])
 
-  // Borradores que pide el servidor MCP (draft_reply). Si ya hay un redactor abierto no se pisa
-  // lo que el usuario está escribiendo.
+  // Cola de borradores del servidor MCP (draft_mail / draft_reply): se abre de a uno, nunca sobre
+  // un redactor en uso, y al cerrarse el actual (enviado, programado o descartado) sigue el próximo.
+  const hasDraft = draft !== null
+  const stashedDrafts = useRef<ComposeDraft[]>([])
   useEffect(() => {
-    return window.api.mcp.onOpenCompose((incoming) => {
-      if (!useComposeStore.getState().draft) useComposeStore.getState().openCompose(incoming)
-    })
-  }, [])
+    async function openNext(): Promise<void> {
+      if (useComposeStore.getState().draft) return
+      const next = stashedDrafts.current.shift() ?? (await window.api.mcp.takeNextDraft())
+      if (!next) return
+      // Si mientras esperábamos se abrió otro redactor, el borrador espera su turno acá.
+      if (useComposeStore.getState().draft) stashedDrafts.current.push(next)
+      else useComposeStore.getState().openCompose(next)
+    }
+    if (!hasDraft) void openNext()
+    return window.api.mcp.onDraftsChanged(() => void openNext())
+  }, [hasDraft])
 
   return (
     <div className="app-shell">

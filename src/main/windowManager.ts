@@ -12,10 +12,11 @@ export function notifyMailChanged(): void {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('mcp:mail-changed')
 }
 
-// Pide a la UI abrir el redactor con un borrador (el usuario lo revisa y envía él).
-export function openComposeInWindow(draft: unknown): void {
-  if (!mainWindow || mainWindow.isDestroyed()) throw new Error('La ventana de Blaster no está abierta')
-  mainWindow.webContents.send('mcp:open-compose', draft)
+// Avisa a la UI que hay borradores nuevos en la cola del MCP; ella los toma cuando no tenga un
+// redactor abierto. Sin ventana, quedan en la cola hasta que se abra la app.
+export function notifyDraftsQueued(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.webContents.send('mcp:drafts-changed')
   focusMainWindow()
 }
 

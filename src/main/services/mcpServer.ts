@@ -28,7 +28,8 @@ import { basename, join } from 'path'
 import type { AttachmentRef } from '@shared/types'
 import { decodeThreadRef } from '@shared/threadRef'
 import { planReply } from './replyBuilder'
-import { notifyMailChanged, openComposeInWindow } from '../windowManager'
+import { notifyDraftsQueued, notifyMailChanged } from '../windowManager'
+import { discardQueuedDraft, enqueueDraft, listQueuedDrafts } from './mcpDraftQueue'
 
 const TOKEN_PROVIDER = 'mcp-token'
 export const MCP_DEFAULT_PORT = 38417
@@ -147,6 +148,27 @@ function resolveDraftAttachments(items: z.infer<typeof draftAttachment>[]): Atta
     writeFileSync(filePath, buffer)
     return { path: filePath, name: basename(item.name), size: buffer.length }
   })
+}
+
+const scheduledForField = z
+  .string()
+  .optional()
+  .describe(
+    'Fecha/hora ISO 8601 futura (con zona horaria). Opcional: el redactor abre con el envío ya programado para esa fecha y el usuario solo confirma.'
+  )
+
+function checkScheduledFor(value: string | undefined): string | null {
+  if (value === undefined) return null
+  const time = Date.parse(value)
+  if (Number.isNaN(time)) return 'scheduledFor no es una fecha válida'
+  if (time <= Date.now()) return 'scheduledFor tiene que ser una fecha futura'
+  return null
+}
+
+function queueNote(position: number): string {
+  return position > 1
+    ? ` Hay ${position - 1} borrador(es) antes en la cola: se abren de a uno, a medida que el usuario cierra el redactor.`
+    : ''
 }
 
 function buildServer(allowSend: boolean): McpServer {
@@ -355,17 +377,20 @@ function buildServer(allowSend: boolean): McpServer {
     'draft_reply',
     {
       description:
-        'Abre el redactor de Blaster con la respuesta a un hilo ya cargada (destinatarios, asunto "Re:", hilo y texto citado) para que el usuario la revise, edite y envíe él. No envía nada. Preferir esto a reply_to_thread salvo que el usuario pida enviar directo.',
+        'Encola en Blaster la respuesta a un hilo ya cargada (destinatarios, asunto "Re:", hilo y texto citado) para que el usuario la revise, edite y envíe él (se abre cuando no tenga otro redactor en uso; la cola persiste entre sesiones). No envía nada. Con scheduledFor abre con el envío programado listo para confirmar. Preferir esto a reply_to_thread salvo que el usuario pida enviar directo.',
       inputSchema: {
         accountId: z.string(),
         threadId: z.string(),
         bodyText: z.string().describe('Texto de la respuesta (sin el citado, se agrega solo)'),
-        replyAll: z.boolean().default(false)
+        replyAll: z.boolean().default(false),
+        scheduledFor: scheduledForField
       }
     },
-    async ({ accountId, threadId, bodyText, replyAll }) => {
+    async ({ accountId, threadId, bodyText, replyAll, scheduledFor }) => {
+      const invalid = checkScheduledFor(scheduledFor)
+      if (invalid) return fail(invalid)
       const plan = planReply(accountId, threadId, replyAll)
-      openComposeInWindow({
+      const queued = enqueueDraft({
         accountId,
         to: plan.to.join(', '),
         cc: plan.cc.length ? plan.cc.join(', ') : undefined,
@@ -373,9 +398,13 @@ function buildServer(allowSend: boolean): McpServer {
         body: `${bodyText}\n\n${plan.quotedText}`,
         inReplyTo: plan.inReplyTo,
         references: plan.references,
-        context: plan.context
+        context: plan.context,
+        scheduledFor
       })
-      return text(`Borrador abierto en Blaster para ${plan.to.join(', ')}${plan.cc.length ? ` (cc: ${plan.cc.join(', ')})` : ''}. El usuario tiene que revisarlo y enviarlo (si ya tenía un redactor abierto, no se reemplaza: que lo cierre y reintentá).`)
+      notifyDraftsQueued()
+      return text(
+        `Borrador en cola en Blaster para ${plan.to.join(', ')}${plan.cc.length ? ` (cc: ${plan.cc.join(', ')})` : ''}${scheduledFor ? `, con envío propuesto para ${scheduledFor}` : ''}. El usuario tiene que revisarlo y enviarlo.${queueNote(listQueuedDrafts().length)} (id: ${queued.id})`
+      )
     }
   )
 
@@ -383,7 +412,7 @@ function buildServer(allowSend: boolean): McpServer {
     'draft_mail',
     {
       description:
-        'Abre el redactor de Blaster con un correo NUEVO ya cargado (destinatarios, cc/bcc, asunto, cuerpo y adjuntos) para que el usuario lo revise, edite y envíe él. No envía nada. Para responder un hilo usar draft_reply.',
+        'Encola en Blaster un correo NUEVO ya cargado (se abre en el redactor cuando el usuario esté libre) (destinatarios, cc/bcc, asunto, cuerpo y adjuntos) para que el usuario lo revise, edite y envíe él. No envía nada. Se pueden encolar varios, incluso en distintas sesiones: la cola persiste. Con scheduledFor el redactor abre con el envío programado listo para confirmar. Para responder un hilo usar draft_reply.',
       inputSchema: {
         accountId: z.string().describe('ID de la cuenta desde la que sale (ver list_accounts)'),
         to: addressList.default([]),
@@ -391,28 +420,67 @@ function buildServer(allowSend: boolean): McpServer {
         bcc: addressList.default([]),
         subject: z.string().default(''),
         bodyText: z.string().default('').describe('Cuerpo en texto plano'),
-        attachments: z.array(draftAttachment).default([])
+        attachments: z.array(draftAttachment).default([]),
+        scheduledFor: scheduledForField
       }
     },
-    async ({ accountId, to, cc, bcc, subject, bodyText, attachments }) => {
+    async ({ accountId, to, cc, bcc, subject, bodyText, attachments, scheduledFor }) => {
+      const invalid = checkScheduledFor(scheduledFor)
+      if (invalid) return fail(invalid)
       let resolved: AttachmentRef[]
       try {
         resolved = resolveDraftAttachments(attachments)
       } catch (err) {
         return fail(`No se pudieron preparar los adjuntos: ${err instanceof Error ? err.message : String(err)}`)
       }
-      openComposeInWindow({
+      const queued = enqueueDraft({
         accountId,
         to: to.join(', '),
         cc: cc.length ? cc.join(', ') : undefined,
         bcc: bcc.length ? bcc.join(', ') : undefined,
         subject,
         body: bodyText,
-        attachments: resolved.length ? resolved : undefined
+        attachments: resolved.length ? resolved : undefined,
+        scheduledFor
       })
+      notifyDraftsQueued()
       return text(
-        `Borrador abierto en Blaster${to.length ? ` para ${to.join(', ')}` : ''}${cc.length ? ` (cc: ${cc.join(', ')})` : ''}${resolved.length ? ` con ${resolved.length} adjunto(s)` : ''}. El usuario tiene que revisarlo y enviarlo (si ya tenía un redactor abierto, no se reemplaza: que lo cierre y reintentá).`
+        `Borrador en cola en Blaster${to.length ? ` para ${to.join(', ')}` : ''}${cc.length ? ` (cc: ${cc.join(', ')})` : ''}${resolved.length ? ` con ${resolved.length} adjunto(s)` : ''}${scheduledFor ? `, con envío propuesto para ${scheduledFor}` : ''}. El usuario tiene que revisarlo y enviarlo.${queueNote(listQueuedDrafts().length)} (id: ${queued.id})`
       )
+    }
+  )
+
+  server.registerTool(
+    'list_queued_drafts',
+    {
+      description:
+        'Lista los borradores encolados con draft_mail/draft_reply que el usuario todavía no abrió (los ya abiertos salen de la cola).',
+      inputSchema: {}
+    },
+    async () =>
+      text(
+        listQueuedDrafts().map((q) => ({
+          id: q.id,
+          accountId: q.draft.accountId,
+          to: q.draft.to,
+          cc: q.draft.cc,
+          subject: q.draft.subject,
+          attachments: q.draft.attachments?.map((a) => a.name),
+          scheduledFor: q.draft.scheduledFor,
+          queuedAt: q.createdAt
+        }))
+      )
+  )
+
+  server.registerTool(
+    'discard_queued_draft',
+    {
+      description: 'Quita de la cola un borrador que todavía no se abrió (id de list_queued_drafts).',
+      inputSchema: { id: z.string() }
+    },
+    async ({ id }) => {
+      if (!discardQueuedDraft(id)) return fail('No hay un borrador en cola con ese id (quizá ya se abrió).')
+      return text('Borrador quitado de la cola.')
     }
   )
 
