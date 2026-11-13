@@ -22,6 +22,10 @@ import { buildPendingDigest } from './pendingDigest'
 import { extractAttachmentText } from './attachmentText'
 import { sendMail } from './mailSend'
 import { cancelScheduledMail, listScheduledMail, scheduleMail } from './scheduledMailRepository'
+import { mkdtempSync, statSync, writeFileSync } from 'fs'
+import { tmpdir } from 'os'
+import { basename, join } from 'path'
+import type { AttachmentRef } from '@shared/types'
 import { decodeThreadRef } from '@shared/threadRef'
 import { planReply } from './replyBuilder'
 import { notifyMailChanged, openComposeInWindow } from '../windowManager'
@@ -118,6 +122,31 @@ const sendFields = {
   bodyText: z.string().describe('Cuerpo en texto plano (la firma de la cuenta se agrega sola)'),
   inReplyTo: z.string().optional().describe('messageId del mensaje al que se responde, para mantener el hilo'),
   references: z.array(z.string()).optional()
+}
+
+const draftAttachment = z
+  .object({
+    path: z.string().optional().describe('Ruta absoluta de un archivo local'),
+    name: z.string().optional().describe('Nombre del archivo (obligatorio con contentBase64)'),
+    contentBase64: z.string().optional().describe('Contenido del archivo en base64 (alternativa a path)')
+  })
+  .refine((a) => Boolean(a.path) !== Boolean(a.contentBase64), 'Indicar path o contentBase64, no ambos')
+
+function resolveDraftAttachments(items: z.infer<typeof draftAttachment>[]): AttachmentRef[] {
+  let tempDir: string | null = null
+  return items.map((item) => {
+    if (item.path) {
+      const stat = statSync(item.path)
+      if (!stat.isFile()) throw new Error(`No es un archivo: ${item.path}`)
+      return { path: item.path, name: item.name || basename(item.path), size: stat.size }
+    }
+    if (!item.name) throw new Error('Un adjunto con contentBase64 necesita name')
+    tempDir ??= mkdtempSync(join(tmpdir(), 'blaster-mcp-'))
+    const filePath = join(tempDir, basename(item.name))
+    const buffer = Buffer.from(item.contentBase64 as string, 'base64')
+    writeFileSync(filePath, buffer)
+    return { path: filePath, name: basename(item.name), size: buffer.length }
+  })
 }
 
 function buildServer(allowSend: boolean): McpServer {
@@ -347,6 +376,43 @@ function buildServer(allowSend: boolean): McpServer {
         context: plan.context
       })
       return text(`Borrador abierto en Blaster para ${plan.to.join(', ')}${plan.cc.length ? ` (cc: ${plan.cc.join(', ')})` : ''}. El usuario tiene que revisarlo y enviarlo (si ya tenía un redactor abierto, no se reemplaza: que lo cierre y reintentá).`)
+    }
+  )
+
+  server.registerTool(
+    'draft_mail',
+    {
+      description:
+        'Abre el redactor de Blaster con un correo NUEVO ya cargado (destinatarios, cc/bcc, asunto, cuerpo y adjuntos) para que el usuario lo revise, edite y envíe él. No envía nada. Para responder un hilo usar draft_reply.',
+      inputSchema: {
+        accountId: z.string().describe('ID de la cuenta desde la que sale (ver list_accounts)'),
+        to: addressList.default([]),
+        cc: addressList.default([]),
+        bcc: addressList.default([]),
+        subject: z.string().default(''),
+        bodyText: z.string().default('').describe('Cuerpo en texto plano'),
+        attachments: z.array(draftAttachment).default([])
+      }
+    },
+    async ({ accountId, to, cc, bcc, subject, bodyText, attachments }) => {
+      let resolved: AttachmentRef[]
+      try {
+        resolved = resolveDraftAttachments(attachments)
+      } catch (err) {
+        return fail(`No se pudieron preparar los adjuntos: ${err instanceof Error ? err.message : String(err)}`)
+      }
+      openComposeInWindow({
+        accountId,
+        to: to.join(', '),
+        cc: cc.length ? cc.join(', ') : undefined,
+        bcc: bcc.length ? bcc.join(', ') : undefined,
+        subject,
+        body: bodyText,
+        attachments: resolved.length ? resolved : undefined
+      })
+      return text(
+        `Borrador abierto en Blaster${to.length ? ` para ${to.join(', ')}` : ''}${cc.length ? ` (cc: ${cc.join(', ')})` : ''}${resolved.length ? ` con ${resolved.length} adjunto(s)` : ''}. El usuario tiene que revisarlo y enviarlo (si ya tenía un redactor abierto, no se reemplaza: que lo cierre y reintentá).`
+      )
     }
   )
 
