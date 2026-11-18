@@ -1,12 +1,7 @@
 import { randomUUID } from 'crypto'
 import { getDb } from '../db'
-import type { ComposeDraft } from '@shared/types'
+import type { ComposeDraft, QueuedDraft } from '@shared/types'
 
-export interface QueuedDraft {
-  id: string
-  draft: ComposeDraft
-  createdAt: string
-}
 
 interface Row {
   id: string
@@ -19,7 +14,7 @@ function toQueued(row: Row): QueuedDraft {
 }
 
 // Cola persistente de borradores pedidos por el servidor MCP: sobrevive a cerrar la app y a
-// que ya haya un redactor abierto. La UI los va tomando de a uno.
+// que ya haya un redactor abierto. La UI los lista en la sección Borradores; no se abren solos.
 export function enqueueDraft(draft: ComposeDraft): QueuedDraft {
   const id = randomUUID()
   const createdAt = new Date().toISOString()
@@ -34,15 +29,12 @@ export function listQueuedDrafts(): QueuedDraft[] {
   return rows.map(toQueued)
 }
 
-// Saca y devuelve el borrador más antiguo (null si la cola está vacía).
-export function takeNextDraft(): ComposeDraft | null {
-  const db = getDb()
-  const row = db.prepare('SELECT * FROM mcp_draft_queue ORDER BY created_at ASC, rowid ASC LIMIT 1').get() as
-    | Row
-    | undefined
-  if (!row) return null
-  db.prepare('DELETE FROM mcp_draft_queue WHERE id = ?').run(row.id)
-  return toQueued(row).draft
+// Guarda los cambios hechos a un borrador que se abrió y se cerró sin enviar.
+export function updateQueuedDraft(id: string, draft: ComposeDraft): boolean {
+  const { queuedDraftId: _ignored, error: _error, ...clean } = draft
+  return (
+    getDb().prepare('UPDATE mcp_draft_queue SET draft_json = ? WHERE id = ?').run(JSON.stringify(clean), id).changes > 0
+  )
 }
 
 export function discardQueuedDraft(id: string): boolean {

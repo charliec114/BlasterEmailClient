@@ -63,6 +63,11 @@ function createWindow(): void {
   }
 }
 
+// Un error suelto (típicamente un socket que se cae en medio de una operación de red) no debe
+// terminar en el diálogo de "error no capturado" de Electron ni dejar la app a medias.
+process.on('uncaughtException', (error) => console.error('Excepción no capturada:', error))
+process.on('unhandledRejection', (reason) => console.error('Promesa rechazada sin manejar:', reason))
+
 app.whenReady().then(() => {
   configureDb(join(app.getPath('userData'), 'blaster.db'))
   electronApp.setAppUserModelId('ar.com.blaster.emailclient')

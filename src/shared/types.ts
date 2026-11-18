@@ -158,7 +158,7 @@ export interface SendMailInput {
   attachments: AttachmentRef[]
 }
 
-export type ScheduledMailStatus = 'pending' | 'sent' | 'failed' | 'canceled'
+export type ScheduledMailStatus = 'pending' | 'sending' | 'sent' | 'failed' | 'canceled'
 
 export interface ScheduleMailInput extends SendMailInput {
   scheduledFor: string
@@ -168,6 +168,19 @@ export interface ScheduledMail extends ScheduleMailInput {
   id: string
   status: ScheduledMailStatus
   error?: string | null
+  createdAt: string
+  // true: no lo programó el usuario; quedó en cola por no haber conexión y sale solo al volver.
+  queuedOffline: boolean
+}
+
+export interface SendMailResult {
+  // true: no había conexión, el mensaje quedó en la cola de salida y se envía solo al volver internet.
+  queued: boolean
+}
+
+export interface QueuedDraft {
+  id: string
+  draft: ComposeDraft
   createdAt: string
 }
 
@@ -197,4 +210,6 @@ export interface ComposeDraft {
   scheduledFor?: string
   // Se setea al reabrir un borrador cuyo envío falló, para mostrar el motivo.
   error?: string
+  // Id del borrador en la cola del MCP (sólo en memoria): al enviarlo o programarlo se saca de la cola.
+  queuedDraftId?: string
 }

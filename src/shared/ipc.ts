@@ -42,5 +42,7 @@ export const IPC = {
   mcpRegenerateToken: 'mcp:regenerate-token',
   mcpMailChanged: 'mcp:mail-changed',
   mcpDraftsChanged: 'mcp:drafts-changed',
-  mcpTakeNextDraft: 'mcp:take-next-draft'
+  mcpListDrafts: 'mcp:list-drafts',
+  mcpDiscardDraft: 'mcp:discard-draft',
+  mcpUpdateDraft: 'mcp:update-draft'
 } as const

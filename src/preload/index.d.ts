@@ -13,6 +13,8 @@ import type {
   ScheduleMailInput,
   ScheduledMail,
   SendMailInput,
+  SendMailResult,
+  QueuedDraft,
   StoredSummary,
   Thread,
   UpdateCheckResult
@@ -41,7 +43,7 @@ interface BlasterApi {
     listUnifiedInbox: () => Promise<Thread[]>
     getThread: (accountId: string, threadId: string) => Promise<Thread | undefined>
     search: (query: string) => Promise<Thread[]>
-    send: (input: SendMailInput) => Promise<void>
+    send: (input: SendMailInput) => Promise<SendMailResult>
     markThreadRead: (accountId: string, folderId: string, threadId: string) => Promise<void>
     markFolderRead: (accountId: string, folderId: string) => Promise<void>
     saveAttachment: (attachmentId: string) => Promise<string | null>
@@ -83,7 +85,9 @@ interface BlasterApi {
     getInfo: () => Promise<McpInfo>
     apply: () => Promise<McpInfo>
     regenerateToken: () => Promise<McpInfo>
-    takeNextDraft: () => Promise<ComposeDraft | null>
+    listDrafts: () => Promise<QueuedDraft[]>
+    discardDraft: (id: string) => Promise<boolean>
+    updateDraft: (id: string, draft: ComposeDraft) => Promise<boolean>
     onDraftsChanged: (callback: () => void) => () => void
     onMailChanged: (callback: () => void) => () => void
   }

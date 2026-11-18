@@ -32,7 +32,9 @@ function isNewerVersion(latest: string, current: string): boolean {
 }
 
 export async function checkForUpdate(currentVersion: string): Promise<UpdateCheckResult> {
-  const res = await fetch(RELEASES_API_URL, { headers: { Accept: 'application/vnd.github+json' } })
+  const res = await fetch(RELEASES_API_URL, { headers: { Accept: 'application/vnd.github+json' },
+    signal: AbortSignal.timeout(15_000)
+  })
   if (!res.ok) {
     throw new Error(`GitHub respondió ${res.status}`)
   }

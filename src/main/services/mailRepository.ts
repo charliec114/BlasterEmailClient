@@ -133,39 +133,160 @@ export function getFolderRemotePath(folderId: string): string {
   return row.remote_path
 }
 
-// Un hilo puede tener copias en varias carpetas (p. ej. INBOX y "Todos" en Gmail, o respuestas en
-// Enviados), así que se marca leído en todas las de la cuenta y se devuelven los UIDs agrupados
-// por ruta remota para avisarle a cada carpeta del servidor.
-export function markThreadReadLocal(accountId: string, threadKey: string): { remotePath: string; uids: string[] }[] {
-  const db = getDb()
-  const rows = db
-    .prepare(
-      `SELECT f.remote_path AS remote_path, m.remote_uid AS remote_uid
-       FROM messages m JOIN folders f ON f.id = m.folder_id
-       WHERE m.account_id = ? AND m.thread_key = ? AND m.is_read = 0`
-    )
-    .all(accountId, threadKey) as { remote_path: string; remote_uid: string }[]
-
-  db.prepare('UPDATE messages SET is_read = 1 WHERE account_id = ? AND thread_key = ?').run(accountId, threadKey)
-
-  const byPath = new Map<string, string[]>()
-  for (const row of rows) {
-    const list = byPath.get(row.remote_path)
-    if (list) list.push(row.remote_uid)
-    else byPath.set(row.remote_path, [row.remote_uid])
-  }
-  return Array.from(byPath, ([remotePath, uids]) => ({ remotePath, uids }))
+export interface PendingFlagOp {
+  id: number
+  accountId: string
+  folderId: string
+  remotePath: string
+  remoteUid: string
+  flag: string
+  add: boolean
 }
 
-export function markFolderReadLocal(folderId: string): string[] {
+function isImapAccount(accountId: string): boolean {
+  const row = getDb().prepare('SELECT protocol FROM accounts WHERE id = ?').get(accountId) as
+    | { protocol: string }
+    | undefined
+  return row?.protocol === 'imap'
+}
+
+function enqueueFlagOps(
+  accountId: string,
+  messages: { folder_id: string; remote_uid: string }[],
+  flag: string,
+  add: boolean
+): void {
+  if (messages.length === 0 || !isImapAccount(accountId)) return
+  const insert = getDb().prepare(
+    'INSERT INTO pending_flag_ops (account_id, folder_id, remote_uid, flag, add_flag, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+  )
+  const now = new Date().toISOString()
+  for (const message of messages) insert.run(accountId, message.folder_id, message.remote_uid, flag, add ? 1 : 0, now)
+}
+
+// Un hilo puede tener copias en varias carpetas (p. ej. INBOX y "Todos" en Gmail, o respuestas en
+// Enviados), así que se marca leído en todas las de la cuenta y se encola el cambio para cada
+// copia. La cola (pending_flag_ops) es lo que hace que funcione sin conexión: el cambio local es
+// inmediato y el servidor se entera en cuanto se pueda (ver flushFlagOps en imapSync.ts).
+export function markThreadReadLocal(accountId: string, threadKey: string): void {
   const db = getDb()
-  const rows = db
-    .prepare('SELECT remote_uid FROM messages WHERE folder_id = ? AND is_read = 0')
-    .all(folderId) as { remote_uid: string }[]
+  db.transaction(() => {
+    const rows = db
+      .prepare('SELECT folder_id, remote_uid FROM messages WHERE account_id = ? AND thread_key = ? AND is_read = 0')
+      .all(accountId, threadKey) as { folder_id: string; remote_uid: string }[]
+    if (rows.length === 0) return
+    db.prepare('UPDATE messages SET is_read = 1 WHERE account_id = ? AND thread_key = ?').run(accountId, threadKey)
+    enqueueFlagOps(accountId, rows, '\\Seen', true)
+  })()
+}
 
-  db.prepare('UPDATE messages SET is_read = 1 WHERE folder_id = ?').run(folderId)
+export function markFolderReadLocal(accountId: string, folderId: string): void {
+  const db = getDb()
+  db.transaction(() => {
+    const rows = db
+      .prepare('SELECT folder_id, remote_uid FROM messages WHERE folder_id = ? AND is_read = 0')
+      .all(folderId) as { folder_id: string; remote_uid: string }[]
+    if (rows.length === 0) return
+    db.prepare('UPDATE messages SET is_read = 1 WHERE folder_id = ?').run(folderId)
+    enqueueFlagOps(accountId, rows, '\\Seen', true)
+  })()
+}
 
-  return rows.map((row) => row.remote_uid)
+export function listPendingFlagOps(accountId: string): PendingFlagOp[] {
+  // Una operación que no se pudo aplicar en 14 días (carpeta renombrada, mensaje borrado) se descarta.
+  getDb()
+    .prepare('DELETE FROM pending_flag_ops WHERE account_id = ? AND created_at < ?')
+    .run(accountId, new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString())
+
+  const rows = getDb()
+    .prepare(
+      `SELECT o.id, o.account_id, o.folder_id, o.remote_uid, o.flag, o.add_flag, f.remote_path
+       FROM pending_flag_ops o JOIN folders f ON f.id = o.folder_id
+       WHERE o.account_id = ? ORDER BY o.id ASC`
+    )
+    .all(accountId) as {
+    id: number
+    account_id: string
+    folder_id: string
+    remote_uid: string
+    flag: string
+    add_flag: number
+    remote_path: string
+  }[]
+  return rows.map((row) => ({
+    id: row.id,
+    accountId: row.account_id,
+    folderId: row.folder_id,
+    remotePath: row.remote_path,
+    remoteUid: row.remote_uid,
+    flag: row.flag,
+    add: row.add_flag === 1
+  }))
+}
+
+export function deletePendingFlagOps(ids: number[]): void {
+  if (ids.length === 0) return
+  const del = getDb().prepare('DELETE FROM pending_flag_ops WHERE id = ?')
+  getDb().transaction(() => {
+    for (const id of ids) del.run(id)
+  })()
+}
+
+export function listPendingFlagUids(folderId: string): Set<string> {
+  const rows = getDb().prepare('SELECT DISTINCT remote_uid FROM pending_flag_ops WHERE folder_id = ?').all(folderId) as {
+    remote_uid: string
+  }[]
+  return new Set(rows.map((row) => row.remote_uid))
+}
+
+export interface FolderSyncState {
+  lastSyncedUid: string | null
+  lastModseq: string | null
+  lastFlagsFullAt: string | null
+}
+
+export function getFolderSyncState(folderId: string): FolderSyncState {
+  const row = getDb()
+    .prepare('SELECT last_synced_uid, last_modseq, last_flags_full_at FROM folders WHERE id = ?')
+    .get(folderId) as { last_synced_uid: string | null; last_modseq: string | null; last_flags_full_at: string | null } | undefined
+  return {
+    lastSyncedUid: row?.last_synced_uid ?? null,
+    lastModseq: row?.last_modseq ?? null,
+    lastFlagsFullAt: row?.last_flags_full_at ?? null
+  }
+}
+
+export function saveFolderFlagsState(folderId: string, modseq: string | null, fullReconcile: boolean): void {
+  getDb()
+    .prepare(
+      `UPDATE folders SET last_modseq = ?, last_flags_full_at = CASE WHEN ? = 1 THEN ? ELSE last_flags_full_at END WHERE id = ?`
+    )
+    .run(modseq, fullReconcile ? 1 : 0, new Date().toISOString(), folderId)
+}
+
+// Aplica a la base local los flags (leído / destacado) que tiene el servidor. Devuelve cuántos
+// mensajes cambiaron. Se saltea los que tienen un cambio local todavía sin enviar.
+export function reconcileFlags(folderId: string, serverFlags: { uid: string; isRead: boolean; isFlagged: boolean }[]): number {
+  if (serverFlags.length === 0) return 0
+  const db = getDb()
+  const skip = listPendingFlagUids(folderId)
+  const update = db.prepare(
+    `UPDATE messages SET is_read = ?, is_flagged = ?
+     WHERE folder_id = ? AND remote_uid = ? AND (is_read != ? OR is_flagged != ?)`
+  )
+  let changed = 0
+  const BATCH = 500
+  for (let i = 0; i < serverFlags.length; i += BATCH) {
+    db.transaction(() => {
+      for (const item of serverFlags.slice(i, i + BATCH)) {
+        if (skip.has(item.uid)) continue
+        const read = item.isRead ? 1 : 0
+        const flagged = item.isFlagged ? 1 : 0
+        changed += update.run(read, flagged, folderId, item.uid, read, flagged).changes
+      }
+    })()
+  }
+  return changed
 }
 
 export function listRemoteUidsForFolder(folderId: string): Set<string> {

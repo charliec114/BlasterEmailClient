@@ -11,7 +11,7 @@ import {
   searchMessages
 } from '../services/mailRepository'
 import { markFolderRead, markThreadRead, syncAccount } from '../services/syncService'
-import { sendMail } from '../services/mailSend'
+import { sendOrQueue } from '../services/outbox'
 
 export function registerMailIpc(): void {
   ipcMain.handle(IPC.syncRun, (_event, accountId: string) => syncAccount(accountId))
@@ -28,7 +28,7 @@ export function registerMailIpc(): void {
 
   ipcMain.handle(IPC.mailSearch, (_event, query: string) => searchMessages(query))
 
-  ipcMain.handle(IPC.mailSend, (_event, input: SendMailInput) => sendMail(input))
+  ipcMain.handle(IPC.mailSend, (_event, input: SendMailInput) => sendOrQueue(input))
 
   ipcMain.handle(IPC.mailMarkThreadRead, (_event, accountId: string, folderId: string, threadId: string) =>
     markThreadRead(accountId, folderId, threadId)

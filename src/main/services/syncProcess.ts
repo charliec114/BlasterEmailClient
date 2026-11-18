@@ -25,9 +25,12 @@ export type SyncProcessResponse = { id: number; ok: true; result: number } | { i
 
 async function syncAccount(account: Account, imapAuth?: ResolvedAuth, pop3Password?: string): Promise<number> {
   let newMessageCount: number
+  let changedCount = 0
   if (account.protocol === 'imap') {
     if (!imapAuth) throw new Error('Falta la autenticación IMAP')
-    newMessageCount = await syncImapAccount(account, imapAuth)
+    const result = await syncImapAccount(account, imapAuth)
+    newMessageCount = result.added
+    changedCount = result.changed
   } else {
     newMessageCount = await syncPop3Account(account, pop3Password ?? '')
   }
@@ -47,7 +50,8 @@ async function syncAccount(account: Account, imapAuth?: ResolvedAuth, pop3Passwo
     }
   }
 
-  return newMessageCount
+  // Los cambios de flags o mensajes borrados en el servidor también cuentan: la UI tiene que re-listar.
+  return newMessageCount + changedCount
 }
 
 async function handle(request: SyncProcessRequest): Promise<number> {
@@ -67,3 +71,8 @@ process.parentPort.on('message', async (event) => {
   }
   process.parentPort.postMessage(response)
 })
+
+// Un error de socket que escape a los listeners no debe tumbar el proceso en silencio: se registra
+// y, si había un pedido en curso, su promesa se resuelve igual por el timeout de syncClient.
+process.on('uncaughtException', (error) => console.error('Sync: excepción no capturada:', error))
+process.on('unhandledRejection', (reason) => console.error('Sync: promesa rechazada sin manejar:', reason))

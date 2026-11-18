@@ -105,6 +105,8 @@ export const useMailDataStore = create<MailDataStore>((set, get) => ({
   // carpetas ni listados), que es el caso normal del sync automático cada 5 minutos.
   syncAccount: async (accountId) => {
     if (get().syncingAccountIds.includes(accountId)) return 0
+    // Sin red no hay nada que sincronizar: se trabaja con lo ya descargado (sin error ni spinner).
+    if (!navigator.onLine) return 0
     const unreadBefore = sumUnread(get().foldersByAccount[accountId] ?? [])
     set({ syncingAccountIds: [...get().syncingAccountIds, accountId] })
     try {
@@ -125,6 +127,11 @@ export const useMailDataStore = create<MailDataStore>((set, get) => ({
         }
       }
       return newCount
+    } catch (error) {
+      // Un fallo de red o del servidor no debe cortar el ciclo de las demás cuentas ni quedar como
+      // promesa rechazada sin manejar; el próximo ciclo (o el botón) reintenta.
+      console.error(`Falló la sincronización de la cuenta ${accountId}:`, error)
+      return 0
     } finally {
       set({ syncingAccountIds: get().syncingAccountIds.filter((id) => id !== accountId) })
     }

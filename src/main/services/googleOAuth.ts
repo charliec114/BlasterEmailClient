@@ -3,6 +3,8 @@ import http from 'http'
 import type { AddressInfo } from 'net'
 import { shell } from 'electron'
 
+const OAUTH_FETCH_TIMEOUT_MS = 20_000
+
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
@@ -160,6 +162,7 @@ export async function connectGoogleAccount(): Promise<GoogleAccountInfo> {
   const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     body: new URLSearchParams({
       code,
       client_id: clientId,
@@ -180,7 +183,8 @@ export async function connectGoogleAccount(): Promise<GoogleAccountInfo> {
   }
 
   const userInfoRes = await fetch(GOOGLE_USERINFO_URL, {
-    headers: { Authorization: `Bearer ${tokens.access_token}` }
+    headers: { Authorization: `Bearer ${tokens.access_token}` },
+    signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS)
   })
   if (!userInfoRes.ok) {
     throw new Error('No se pudo obtener el email de la cuenta de Google')
@@ -196,6 +200,7 @@ export async function refreshGoogleAccessToken(refreshToken: string): Promise<st
   const res = await fetch(GOOGLE_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    signal: AbortSignal.timeout(OAUTH_FETCH_TIMEOUT_MS),
     body: new URLSearchParams({
       client_id: clientId,
       client_secret: clientSecret,

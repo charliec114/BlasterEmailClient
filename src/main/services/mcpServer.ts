@@ -29,7 +29,7 @@ import { basename, join } from 'path'
 import type { AttachmentRef } from '@shared/types'
 import { decodeThreadRef } from '@shared/threadRef'
 import { planReply } from './replyBuilder'
-import { notifyDraftsQueued, notifyMailChanged } from '../windowManager'
+import { notifyDraftsChanged, notifyDraftsQueued, notifyMailChanged } from '../windowManager'
 import { discardQueuedDraft, enqueueDraft, listQueuedDrafts } from './mcpDraftQueue'
 
 const TOKEN_PROVIDER = 'mcp-token'
@@ -168,7 +168,7 @@ const scheduledForField = z
   .string()
   .optional()
   .describe(
-    'Fecha/hora ISO 8601 futura (con zona horaria). Opcional: el redactor abre con el envío ya programado para esa fecha y el usuario solo confirma.'
+    'Fecha/hora ISO 8601 futura (con zona horaria). Opcional: al abrir el borrador viene con el envío ya programado para esa fecha y el usuario solo confirma.'
   )
 
 function checkScheduledFor(value: string | undefined): string | null {
@@ -181,7 +181,7 @@ function checkScheduledFor(value: string | undefined): string | null {
 
 function queueNote(position: number): string {
   return position > 1
-    ? ` Hay ${position - 1} borrador(es) antes en la cola: se abren de a uno, a medida que el usuario cierra el redactor.`
+    ? ` Hay ${position - 1} borrador(es) antes en la sección Borradores de Blaster.`
     : ''
 }
 
@@ -391,7 +391,7 @@ function buildServer(allowSend: boolean): McpServer {
     'draft_reply',
     {
       description:
-        'Encola en Blaster la respuesta a un hilo ya cargada (destinatarios, asunto "Re:", hilo y texto citado) para que el usuario la revise, edite y envíe él (se abre cuando no tenga otro redactor en uso; la cola persiste entre sesiones). No envía nada. Con scheduledFor abre con el envío programado listo para confirmar. Preferir esto a reply_to_thread salvo que el usuario pida enviar directo.',
+        'Encola en Blaster la respuesta a un hilo ya cargada (destinatarios, asunto "Re:", hilo y texto citado) para que el usuario la revise, edite y envíe él (queda en la sección Borradores de Blaster; no se abre sola y persiste entre sesiones). No envía nada. Con scheduledFor abre con el envío programado listo para confirmar. Preferir esto a reply_to_thread salvo que el usuario pida enviar directo.',
       inputSchema: {
         accountId: z.string(),
         threadId: z.string(),
@@ -426,7 +426,7 @@ function buildServer(allowSend: boolean): McpServer {
     'draft_mail',
     {
       description:
-        'Encola en Blaster un correo NUEVO ya cargado (se abre en el redactor cuando el usuario esté libre) (destinatarios, cc/bcc, asunto, cuerpo y adjuntos) para que el usuario lo revise, edite y envíe él. No envía nada. Se pueden encolar varios, incluso en distintas sesiones: la cola persiste. Con scheduledFor el redactor abre con el envío programado listo para confirmar. Para responder un hilo usar draft_reply.',
+        'Encola en Blaster un correo NUEVO ya cargado (queda en la sección Borradores de Blaster, no se abre sola) (destinatarios, cc/bcc, asunto, cuerpo y adjuntos) para que el usuario lo revise, edite y envíe él. No envía nada. Se pueden encolar varios, incluso en distintas sesiones: la cola persiste. Con scheduledFor el borrador abre con el envío programado listo para confirmar. Para responder un hilo usar draft_reply.',
       inputSchema: {
         accountId: z.string().describe('ID de la cuenta desde la que sale (ver list_accounts)'),
         to: addressList.default([]),
@@ -470,7 +470,7 @@ function buildServer(allowSend: boolean): McpServer {
     'list_queued_drafts',
     {
       description:
-        'Lista los borradores encolados con draft_mail/draft_reply que el usuario todavía no abrió (los ya abiertos salen de la cola).',
+        'Lista los borradores encolados con draft_mail/draft_reply que el usuario todavía no envió, programó ni descartó (siguen en la sección Borradores aunque ya los haya abierto).',
       inputSchema: {}
     },
     async () =>
@@ -491,11 +491,12 @@ function buildServer(allowSend: boolean): McpServer {
   server.registerTool(
     'discard_queued_draft',
     {
-      description: 'Quita de la cola un borrador que todavía no se abrió (id de list_queued_drafts).',
+      description: 'Quita de la sección Borradores un borrador que el usuario todavía no envió (id de list_queued_drafts).',
       inputSchema: { id: z.string() }
     },
     async ({ id }) => {
-      if (!discardQueuedDraft(id)) return fail('No hay un borrador en cola con ese id (quizá ya se abrió).')
+      if (!discardQueuedDraft(id)) return fail('No hay un borrador en cola con ese id (quizá ya se envió o se descartó).')
+      notifyDraftsChanged()
       return text('Borrador quitado de la cola.')
     }
   )

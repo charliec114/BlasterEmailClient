@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAccountStore } from '../store/useAccountStore'
 import { useComposeStore, type ComposeDraft } from '../store/useComposeStore'
 import { sendInBackground } from '../lib/sendInBackground'
+import { useQueuedDraftsStore } from '../store/useQueuedDraftsStore'
 import { textToEditorHtml, htmlToPlainText } from '../lib/richText'
 import EmailBodyFrame from './EmailBodyFrame'
 import AddressInput from './AddressInput'
@@ -173,10 +174,32 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
       inReplyTo: draft.inReplyTo,
       references: draft.references,
       attachments,
-      context: draft.context
+      context: draft.context,
+      queuedDraftId: draft.queuedDraftId
     }
     closeCompose()
     void sendInBackground(input, restore)
+  }
+
+  // Cerrar sin enviar un borrador que vino del MCP no lo pierde: queda en la sección Borradores con
+  // los cambios que se le hicieron.
+  function handleClose(): void {
+    if (draft.queuedDraftId) {
+      void useQueuedDraftsStore.getState().save(draft.queuedDraftId, {
+        accountId,
+        to,
+        cc,
+        bcc,
+        subject,
+        bodyHtml: body,
+        inReplyTo: draft.inReplyTo,
+        references: draft.references,
+        attachments,
+        context: draft.context,
+        scheduledFor: draft.scheduledFor
+      })
+    }
+    closeCompose()
   }
 
   async function handleSchedule(scheduledFor: Date): Promise<void> {
@@ -201,6 +224,7 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
         scheduledFor: scheduledFor.toISOString()
       })
       setShowSchedule(false)
+      if (draft.queuedDraftId) void useQueuedDraftsStore.getState().discard(draft.queuedDraftId)
       closeCompose()
     } catch (err) {
       setError(errorMessage(err))
@@ -214,7 +238,7 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
       <div className="modal-box compose-box">
         <div className="modal-header-row compose-header">
           <h2>{t('composeModal.newMessageTitle')}</h2>
-          <button type="button" className="modal-close-btn" title={t('common.close')} onClick={closeCompose}>
+          <button type="button" className="modal-close-btn" title={t('common.close')} onClick={handleClose}>
             ✕
           </button>
         </div>
@@ -339,7 +363,7 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
             {t('composeModal.attachFile')}
           </button>
           <div className="modal-actions-spacer" />
-          <button type="button" className="reply-btn" onClick={closeCompose}>
+          <button type="button" className="reply-btn" onClick={handleClose}>
             {t('common.cancel')}
           </button>
           <div className="send-split-btn">

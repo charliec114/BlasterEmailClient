@@ -73,11 +73,20 @@ export default function ScheduledPanel() {
                   <div className={`scheduled-row-time ${item.status === 'failed' ? 'error' : ''}`}>
                     {item.status === 'failed'
                       ? t('scheduledPanel.failed', { error: item.error ?? '' })
-                      : t('scheduledPanel.scheduledFor', { date: formatScheduledFor(item.scheduledFor) })}
+                      : item.status === 'sending'
+                        ? t('scheduledPanel.sending')
+                        : item.queuedOffline
+                          ? t('scheduledPanel.waitingConnection')
+                          : t('scheduledPanel.scheduledFor', { date: formatScheduledFor(item.scheduledFor) })}
                   </div>
                 </div>
                 <div className="scheduled-row-actions">
-                  <button type="button" className="cc-toggle" onClick={() => sendNow(item.id)}>
+                  <button
+                    type="button"
+                    className="cc-toggle"
+                    disabled={item.status === 'sending'}
+                    onClick={() => sendNow(item.id)}
+                  >
                     {t('scheduledPanel.sendNow')}
                   </button>
                   <button type="button" className="cc-toggle" onClick={() => handleEdit(item)}>

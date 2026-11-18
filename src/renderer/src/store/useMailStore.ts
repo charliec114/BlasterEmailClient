@@ -3,6 +3,7 @@ import { create } from 'zustand'
 export const UNIFIED_INBOX_ID = 'unified-inbox'
 export const ASSISTANT_VIEW_ID = 'assistant-view'
 export const SCHEDULED_VIEW_ID = 'scheduled-view'
+export const DRAFTS_VIEW_ID = 'drafts-view'
 
 interface MailStore {
   selectedAccountId: string | null
@@ -13,6 +14,7 @@ interface MailStore {
   selectUnifiedInbox: (label: string) => void
   selectAssistantView: () => void
   selectScheduledView: () => void
+  selectDraftsView: () => void
   selectThread: (threadId: string) => void
 }
 
@@ -29,5 +31,7 @@ export const useMailStore = create<MailStore>((set) => ({
     set({ selectedAccountId: null, selectedFolderId: ASSISTANT_VIEW_ID, selectedFolderName: null, selectedThreadId: null }),
   selectScheduledView: () =>
     set({ selectedAccountId: null, selectedFolderId: SCHEDULED_VIEW_ID, selectedFolderName: null, selectedThreadId: null }),
+  selectDraftsView: () =>
+    set({ selectedAccountId: null, selectedFolderId: DRAFTS_VIEW_ID, selectedFolderName: null, selectedThreadId: null }),
   selectThread: (threadId) => set({ selectedThreadId: threadId })
 }))

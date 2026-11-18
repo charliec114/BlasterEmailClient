@@ -15,6 +15,8 @@ import type {
   ScheduleMailInput,
   ScheduledMail,
   SendMailInput,
+  SendMailResult,
+  QueuedDraft,
   StoredSummary,
   Thread,
   UpdateCheckResult
@@ -46,7 +48,7 @@ const api = {
     getThread: (accountId: string, threadId: string): Promise<Thread | undefined> =>
       ipcRenderer.invoke(IPC.mailGetThread, accountId, threadId),
     search: (query: string): Promise<Thread[]> => ipcRenderer.invoke(IPC.mailSearch, query),
-    send: (input: SendMailInput): Promise<void> => ipcRenderer.invoke(IPC.mailSend, input),
+    send: (input: SendMailInput): Promise<SendMailResult> => ipcRenderer.invoke(IPC.mailSend, input),
     markThreadRead: (accountId: string, folderId: string, threadId: string): Promise<void> =>
       ipcRenderer.invoke(IPC.mailMarkThreadRead, accountId, folderId, threadId),
     markFolderRead: (accountId: string, folderId: string): Promise<void> =>
@@ -96,7 +98,9 @@ const api = {
     getInfo: (): Promise<McpInfo> => ipcRenderer.invoke(IPC.mcpGetInfo),
     apply: (): Promise<McpInfo> => ipcRenderer.invoke(IPC.mcpApply),
     regenerateToken: (): Promise<McpInfo> => ipcRenderer.invoke(IPC.mcpRegenerateToken),
-    takeNextDraft: (): Promise<ComposeDraft | null> => ipcRenderer.invoke(IPC.mcpTakeNextDraft),
+    listDrafts: (): Promise<QueuedDraft[]> => ipcRenderer.invoke(IPC.mcpListDrafts),
+    discardDraft: (id: string): Promise<boolean> => ipcRenderer.invoke(IPC.mcpDiscardDraft, id),
+    updateDraft: (id: string, draft: ComposeDraft): Promise<boolean> => ipcRenderer.invoke(IPC.mcpUpdateDraft, id, draft),
     onDraftsChanged: (callback: () => void): (() => void) => {
       const listener = (): void => callback()
       ipcRenderer.on(IPC.mcpDraftsChanged, listener)

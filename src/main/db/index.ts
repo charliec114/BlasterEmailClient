@@ -264,5 +264,29 @@ export function getDb(): Database.Database {
   `)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_scheduled_messages_status ON scheduled_messages(status, scheduled_for)`)
 
+  // 1 = no es un envío programado por el usuario sino un mensaje que quedó en cola por falta de conexión.
+  ensureColumn(db, 'scheduled_messages', 'outbox', 'INTEGER NOT NULL DEFAULT 0')
+
+  // Sincronización bidireccional de flags: último modseq (CONDSTORE) visto y cuándo se hizo la
+  // última comparación completa de flags de la carpeta.
+  ensureColumn(db, 'folders', 'last_modseq', 'TEXT')
+  ensureColumn(db, 'folders', 'last_flags_full_at', 'TEXT')
+
+  // Cambios de flags hechos acá (leído, etc.) que todavía no llegaron al servidor IMAP — por estar
+  // sin conexión o porque el servidor falló. Se reintentan en cada sync. Mientras un mensaje tiene
+  // una operación pendiente, el sync NO le pisa el flag local con el del servidor.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pending_flag_ops (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id TEXT NOT NULL,
+      folder_id TEXT NOT NULL,
+      remote_uid TEXT NOT NULL,
+      flag TEXT NOT NULL,
+      add_flag INTEGER NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_pending_flag_ops_account ON pending_flag_ops(account_id)`)
+
   return db
 }

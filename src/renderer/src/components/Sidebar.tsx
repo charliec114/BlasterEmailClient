@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type DragEvent, type MouseEvent } from 'react'
 import { useAccountStore } from '../store/useAccountStore'
-import { useMailStore, UNIFIED_INBOX_ID, ASSISTANT_VIEW_ID, SCHEDULED_VIEW_ID } from '../store/useMailStore'
+import { useMailStore, UNIFIED_INBOX_ID, ASSISTANT_VIEW_ID, SCHEDULED_VIEW_ID, DRAFTS_VIEW_ID } from '../store/useMailStore'
+import { useQueuedDraftsStore } from '../store/useQueuedDraftsStore'
+import { useOnline } from '../lib/useOnline'
 import { useMailDataStore } from '../store/useMailDataStore'
 import { useScheduledMailStore } from '../store/useScheduledMailStore'
 import { useSettingsStore } from '../store/useSettingsStore'
@@ -50,6 +52,9 @@ export default function Sidebar() {
   const selectUnifiedInbox = useMailStore((s) => s.selectUnifiedInbox)
   const selectAssistantView = useMailStore((s) => s.selectAssistantView)
   const selectScheduledView = useMailStore((s) => s.selectScheduledView)
+  const selectDraftsView = useMailStore((s) => s.selectDraftsView)
+  const queuedDraftCount = useQueuedDraftsStore((s) => s.items.length)
+  const online = useOnline()
 
   const scheduledCount = useScheduledMailStore((s) => s.items.filter((item) => item.status === 'pending').length)
   const fetchScheduledMail = useScheduledMailStore((s) => s.fetch)
@@ -141,6 +146,17 @@ export default function Sidebar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts.length])
 
+  // Al volver internet se sincroniza enseguida (sube lo pendiente y trae lo nuevo) sin esperar al
+  // próximo ciclo de 5 minutos.
+  useEffect(() => {
+    if (accounts.length === 0) return
+    const handleOnline = (): void => {
+      void syncAllAccounts()
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [accounts.length, syncAllAccounts])
+
   useEffect(() => {
     if (selectedFolderId === null && accounts.length > 0) {
       selectUnifiedInbox(t('sidebar.unifiedInbox'))
@@ -198,6 +214,11 @@ export default function Sidebar() {
         <span className={isSyncing ? 'sync-icon spinning' : 'sync-icon'}>🔄</span>
         {isSyncing ? t('sidebar.syncing') : t('sidebar.searchUpdates')}
       </button>
+      {!online && (
+        <div className="offline-notice" title={t('sidebar.offlineHint')}>
+          📴 {t('sidebar.offline')}
+        </div>
+      )}
 
       <nav className="sidebar-nav">
         {loadingAccounts && accounts.length === 0 && <div className="sidebar-empty">{t('common.loading')}</div>}
@@ -214,6 +235,18 @@ export default function Sidebar() {
           >
             <span className="folder-icon">✨</span>
             <span className="folder-name">{t('sidebar.assistant')}</span>
+          </button>
+        </div>
+
+        <div className="sidebar-unified-row">
+          <button
+            type="button"
+            className={`sidebar-folder-btn ${selectedFolderId === DRAFTS_VIEW_ID ? 'active' : ''}`}
+            onClick={selectDraftsView}
+          >
+            <span className="folder-icon">📝</span>
+            <span className="folder-name">{t('sidebar.drafts')}</span>
+            {queuedDraftCount > 0 && <span className="folder-badge">{queuedDraftCount}</span>}
           </button>
         </div>
 

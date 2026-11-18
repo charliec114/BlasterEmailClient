@@ -50,6 +50,10 @@ export async function sendMail(input: SendMailInput): Promise<void> {
     host: account.outgoing.host,
     port: account.outgoing.port,
     secure: account.outgoing.secure,
+    // Sin timeouts, nodemailer espera para siempre a un servidor que no contesta.
+    connectionTimeout: 30_000,
+    greetingTimeout: 30_000,
+    socketTimeout: 120_000,
     auth: smtpAuth.accessToken
       ? { type: 'OAuth2' as const, user: smtpAuth.user, accessToken: smtpAuth.accessToken }
       : { user: smtpAuth.user, pass: smtpAuth.pass }

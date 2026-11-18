@@ -18,6 +18,7 @@ interface ScheduledMailRow {
   status: ScheduledMailStatus
   error: string | null
   created_at: string
+  outbox: number
 }
 
 function rowToScheduledMail(row: ScheduledMailRow): ScheduledMail {
@@ -36,19 +37,20 @@ function rowToScheduledMail(row: ScheduledMailRow): ScheduledMail {
     scheduledFor: row.scheduled_for,
     status: row.status,
     error: row.error,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    queuedOffline: row.outbox === 1
   }
 }
 
-export function scheduleMail(input: ScheduleMailInput): ScheduledMail {
+export function scheduleMail(input: ScheduleMailInput, options: { outbox?: boolean } = {}): ScheduledMail {
   const db = getDb()
   const id = randomUUID()
   const createdAt = new Date().toISOString()
 
   db.prepare(
     `INSERT INTO scheduled_messages
-      (id, account_id, to_json, cc_json, bcc_json, subject, body_text, body_html, in_reply_to, references_json, attachments_json, scheduled_for, status, created_at)
-     VALUES (@id, @accountId, @to, @cc, @bcc, @subject, @bodyText, @bodyHtml, @inReplyTo, @references, @attachments, @scheduledFor, 'pending', @createdAt)`
+      (id, account_id, to_json, cc_json, bcc_json, subject, body_text, body_html, in_reply_to, references_json, attachments_json, scheduled_for, status, created_at, outbox)
+     VALUES (@id, @accountId, @to, @cc, @bcc, @subject, @bodyText, @bodyHtml, @inReplyTo, @references, @attachments, @scheduledFor, 'pending', @createdAt, @outbox)`
   ).run({
     id,
     accountId: input.accountId,
@@ -62,7 +64,8 @@ export function scheduleMail(input: ScheduleMailInput): ScheduledMail {
     references: input.references ? JSON.stringify(input.references) : null,
     attachments: JSON.stringify(input.attachments),
     scheduledFor: input.scheduledFor,
-    createdAt
+    createdAt,
+    outbox: options.outbox ? 1 : 0
   })
 
   return getScheduledMailById(id) as ScheduledMail
@@ -88,7 +91,16 @@ export function listDueScheduledMail(nowIso: string): ScheduledMail[] {
 }
 
 export function cancelScheduledMail(id: string): void {
-  getDb().prepare("UPDATE scheduled_messages SET status = 'canceled' WHERE id = ? AND status = 'pending'").run(id)
+  getDb().prepare("UPDATE scheduled_messages SET status = 'canceled' WHERE id = ? AND status IN ('pending', 'failed')").run(id)
+}
+
+// Reserva el envío de forma atómica: devuelve false si otro ciclo (o "enviar ahora") ya lo tomó o
+// si se canceló mientras tanto. Evita que dos pasadas del watcher manden el mismo mensaje dos veces.
+export function claimScheduledMail(id: string): boolean {
+  return (
+    getDb().prepare("UPDATE scheduled_messages SET status = 'sending' WHERE id = ? AND status IN ('pending', 'failed')").run(id)
+      .changes > 0
+  )
 }
 
 export function markScheduledMailSent(id: string): void {
@@ -97,4 +109,19 @@ export function markScheduledMailSent(id: string): void {
 
 export function markScheduledMailFailed(id: string, error: string): void {
   getDb().prepare("UPDATE scheduled_messages SET status = 'failed', error = ? WHERE id = ?").run(error, id)
+}
+
+// Sin conexión: vuelve a 'pending' para que el watcher lo reintente cuando haya internet.
+export function releaseScheduledMail(id: string, note: string): void {
+  getDb().prepare("UPDATE scheduled_messages SET status = 'pending', error = ? WHERE id = ?").run(note, id)
+}
+
+// Si la app se cerró en medio de un envío no hay forma de saber si el servidor llegó a aceptarlo:
+// reenviarlo automáticamente podría duplicarlo, así que se marca como fallido y se deja decidir.
+export function failInterruptedScheduledMail(): void {
+  getDb()
+    .prepare(
+      "UPDATE scheduled_messages SET status = 'failed', error = 'Se interrumpió mientras se enviaba. Revisá Enviados antes de reenviarlo.' WHERE status = 'sending'"
+    )
+    .run()
 }

@@ -20,6 +20,11 @@ export function notifyDraftsQueued(): void {
   focusMainWindow()
 }
 
+// Cambió la cola de borradores sin que haya uno nuevo que llame la atención (p. ej. se descartó uno).
+export function notifyDraftsChanged(): void {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('mcp:drafts-changed')
+}
+
 export function focusMainWindow(): void {
   if (!mainWindow) return
   if (mainWindow.isMinimized()) mainWindow.restore()
