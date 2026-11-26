@@ -4,6 +4,7 @@ import { useMailDataStore } from '../store/useMailDataStore'
 import EmailBodyFrame from './EmailBodyFrame'
 import { useT } from '../i18n/useT'
 import type { Account, AccountInput, AccountProtocol, ConnectionTestResult } from '@shared/types'
+import { useEscapeKey } from '../lib/useEscapeKey'
 
 const ACCOUNT_COLORS = ['#0a84ff', '#ff9f0a', '#30d158', '#ff375f', '#bf5af2', '#64d2ff']
 
@@ -87,6 +88,7 @@ interface AccountWizardProps {
 
 export default function AccountWizard({ editingAccount, onClose }: AccountWizardProps) {
   const { t } = useT()
+  useEscapeKey(onClose)
   const addAccount = useAccountStore((s) => s.addAccount)
   const updateAccount = useAccountStore((s) => s.updateAccount)
   const removeAccount = useAccountStore((s) => s.removeAccount)
@@ -221,10 +223,10 @@ export default function AccountWizard({ editingAccount, onClose }: AccountWizard
   if (mode === 'picker') {
     return (
       <div className="modal-overlay">
-        <div className="modal-box provider-picker">
+        <div className="modal-box provider-picker" role="dialog" aria-modal="true">
           <div className="modal-header-row">
             <h2>{t('accountWizard.addTitle')}</h2>
-            <button type="button" className="modal-close-btn" title={t('common.close')} onClick={onClose}>
+            <button type="button" className="modal-close-btn" title={t('common.close')} aria-label={t('common.close')} onClick={onClose}>
               ✕
             </button>
           </div>
@@ -269,7 +271,7 @@ export default function AccountWizard({ editingAccount, onClose }: AccountWizard
 
   return (
     <div className="modal-overlay">
-      <div className="modal-box account-box">
+      <div className="modal-box account-box" role="dialog" aria-modal="true">
         <div className="modal-header-row">
           <h2>{isEditing ? t('accountWizard.editTitle') : t('accountWizard.addTitle')}</h2>
           <div className="modal-header-actions">
@@ -278,7 +280,7 @@ export default function AccountWizard({ editingAccount, onClose }: AccountWizard
                 ← {t('accountWizard.back')}
               </button>
             )}
-            <button type="button" className="modal-close-btn" title={t('common.close')} onClick={onClose}>
+            <button type="button" className="modal-close-btn" title={t('common.close')} aria-label={t('common.close')} onClick={onClose}>
               ✕
             </button>
           </div>

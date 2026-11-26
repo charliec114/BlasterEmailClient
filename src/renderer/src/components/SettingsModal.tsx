@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { McpInfo } from '@shared/types'
 import { useSettingsStore, type Language, type ThemePreference } from '../store/useSettingsStore'
 import { useT } from '../i18n/useT'
+import { useEscapeKey } from '../lib/useEscapeKey'
 
 interface SettingsModalProps {
   onClose: () => void
@@ -11,6 +12,7 @@ const AI_KEY_PROVIDER = 'ai'
 
 export default function SettingsModal({ onClose }: SettingsModalProps) {
   const { t } = useT()
+  useEscapeKey(onClose)
   const theme = useSettingsStore((s) => s.theme)
   const language = useSettingsStore((s) => s.language)
   const soundEnabled = useSettingsStore((s) => s.soundEnabled)
@@ -95,10 +97,10 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-box settings-box">
+      <div className="modal-box settings-box" role="dialog" aria-modal="true">
         <div className="modal-header-row">
           <h2>{t('settingsModal.title')}</h2>
-          <button type="button" className="modal-close-btn" title={t('common.close')} onClick={onClose}>
+          <button type="button" className="modal-close-btn" title={t('common.close')} aria-label={t('common.close')} onClick={onClose}>
             ✕
           </button>
         </div>

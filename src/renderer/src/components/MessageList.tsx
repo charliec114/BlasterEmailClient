@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent } from 'react'
 import { useMailStore, UNIFIED_INBOX_ID } from '../store/useMailStore'
 import { useMailDataStore } from '../store/useMailDataStore'
 import { useAccountStore } from '../store/useAccountStore'
@@ -36,6 +37,7 @@ const MessageRow = memo(function MessageRow({ thread, active, borderColor, local
       <button
         className={`message-row ${active ? 'active' : ''} ${thread.hasUnread ? 'unread' : ''}`}
         style={borderColor ? { borderLeft: `4px solid ${borderColor}` } : undefined}
+        aria-current={active ? 'true' : undefined}
         onClick={() => onSelect(thread.id)}
       >
         <div className="message-row-top">
@@ -127,12 +129,32 @@ export default function MessageList() {
     setFirstVisibleRow(0)
   }, [selectedFolderId, isSearching])
 
+  // Navegación con teclado: ↑/↓ (o j/k) cambian de hilo sin perder el foco aunque la fila salga
+  // del rango virtualizado, y se scrollea lo justo para que el hilo elegido quede visible.
+  function handleKeyDown(e: KeyboardEvent<HTMLElement>): void {
+    const target = e.target as HTMLElement
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return
+    if (e.metaKey || e.ctrlKey || e.altKey) return
+    const delta = e.key === 'ArrowDown' || e.key === 'j' ? 1 : e.key === 'ArrowUp' || e.key === 'k' ? -1 : 0
+    if (delta === 0 || threads.length === 0) return
+    e.preventDefault()
+    const current = threads.findIndex((th) => th.id === selectedThreadId)
+    const next = Math.min(threads.length - 1, Math.max(0, current === -1 ? 0 : current + delta))
+    selectThread(threads[next].id)
+    const el = scrollRef.current
+    if (!el) return
+    const top = next * ROW_HEIGHT
+    if (top < el.scrollTop) el.scrollTop = top
+    else if (top + ROW_HEIGHT > el.scrollTop + el.clientHeight) el.scrollTop = top + ROW_HEIGHT - el.clientHeight
+    el.querySelector<HTMLElement>('.message-row.active')?.focus({ preventScroll: true })
+  }
+
   const startRow = Math.max(0, firstVisibleRow - OVERSCAN)
   const endRow = Math.min(threads.length, firstVisibleRow + Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN)
   const visibleThreads = threads.slice(startRow, endRow)
 
   return (
-    <section className="message-list">
+    <section className="message-list" onKeyDown={handleKeyDown}>
       <div className="message-list-header">
         <span>{isSearching ? t('messageList.searchResultsFor', { query: searchInput }) : selectedFolderName ?? t('messageList.noFolderSelected')}</span>
         <button
@@ -146,14 +168,14 @@ export default function MessageList() {
       </div>
 
       <div className="message-list-search">
-        <span className="search-icon">🔎</span>
+        <span className="search-icon" aria-hidden="true">🔎</span>
         <input
           value={searchInput}
           onChange={(e) => handleSearchInput(e.target.value)}
           placeholder={t('messageList.searchPlaceholder')}
         />
         {searchInput && (
-          <button type="button" className="search-clear-btn" title={t('common.close')} onClick={handleClearSearch}>
+          <button type="button" className="search-clear-btn" title={t('common.close')} aria-label={t('common.close')} onClick={handleClearSearch}>
             ✕
           </button>
         )}

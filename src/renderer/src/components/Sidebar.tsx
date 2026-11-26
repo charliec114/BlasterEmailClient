@@ -9,6 +9,7 @@ import { useSettingsStore } from '../store/useSettingsStore'
 import AccountWizard from './AccountWizard'
 import SettingsModal from './SettingsModal'
 import ContactsModal from './ContactsModal'
+import { useEscapeKey } from '../lib/useEscapeKey'
 import { useT } from '../i18n/useT'
 import type { Account } from '@shared/types'
 
@@ -30,7 +31,8 @@ function resolveOrder(saved: string[], accountIds: string[]): string[] {
   const known = new Set(all)
   const kept = saved.filter((id) => known.has(id))
   const missing = all.filter((id) => !kept.includes(id))
-  return [...kept, ...missing]
+  // La bandeja general siempre va arriba de todo, sin importar el orden guardado.
+  return [UNIFIED_INBOX_ID, ...kept, ...missing].filter((id, i, arr) => arr.indexOf(id) === i)
 }
 
 export default function Sidebar() {
@@ -72,6 +74,7 @@ export default function Sidebar() {
   const [folderContextMenu, setFolderContextMenu] = useState<{ accountId: string; folderId: string; x: number; y: number } | null>(
     null
   )
+  useEscapeKey(() => setFolderContextMenu(null), folderContextMenu !== null)
   const isSyncing = syncingAccountIds.length > 0
 
   const order = resolveOrder(
@@ -227,41 +230,6 @@ export default function Sidebar() {
           <div className="sidebar-empty">{t('sidebar.noAccounts')}</div>
         )}
 
-        <div className="sidebar-unified-row">
-          <button
-            type="button"
-            className={`sidebar-folder-btn ${selectedFolderId === ASSISTANT_VIEW_ID ? 'active' : ''}`}
-            onClick={selectAssistantView}
-          >
-            <span className="folder-icon">✨</span>
-            <span className="folder-name">{t('sidebar.assistant')}</span>
-          </button>
-        </div>
-
-        <div className="sidebar-unified-row">
-          <button
-            type="button"
-            className={`sidebar-folder-btn ${selectedFolderId === DRAFTS_VIEW_ID ? 'active' : ''}`}
-            onClick={selectDraftsView}
-          >
-            <span className="folder-icon">📝</span>
-            <span className="folder-name">{t('sidebar.drafts')}</span>
-            {queuedDraftCount > 0 && <span className="folder-badge">{queuedDraftCount}</span>}
-          </button>
-        </div>
-
-        <div className="sidebar-unified-row">
-          <button
-            type="button"
-            className={`sidebar-folder-btn ${selectedFolderId === SCHEDULED_VIEW_ID ? 'active' : ''}`}
-            onClick={selectScheduledView}
-          >
-            <span className="folder-icon">🕒</span>
-            <span className="folder-name">{t('sidebar.scheduled')}</span>
-            {scheduledCount > 0 && <span className="folder-badge">{scheduledCount}</span>}
-          </button>
-        </div>
-
         {order.map((itemId) => {
           if (itemId === UNIFIED_INBOX_ID) {
             return (
@@ -274,8 +242,6 @@ export default function Sidebar() {
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                draggable
-                onDragStart={() => setDraggedId(UNIFIED_INBOX_ID)}
                 onDragOver={(e) => handleDragOver(e, UNIFIED_INBOX_ID)}
                 onDrop={() => handleDrop(UNIFIED_INBOX_ID)}
                 onDragEnd={handleDragEnd}
@@ -362,6 +328,41 @@ export default function Sidebar() {
             </div>
           )
         })}
+
+        <div className="sidebar-unified-row">
+          <button
+            type="button"
+            className={`sidebar-folder-btn ${selectedFolderId === ASSISTANT_VIEW_ID ? 'active' : ''}`}
+            onClick={selectAssistantView}
+          >
+            <span className="folder-icon">✨</span>
+            <span className="folder-name">{t('sidebar.assistant')}</span>
+          </button>
+        </div>
+
+        <div className="sidebar-unified-row">
+          <button
+            type="button"
+            className={`sidebar-folder-btn ${selectedFolderId === DRAFTS_VIEW_ID ? 'active' : ''}`}
+            onClick={selectDraftsView}
+          >
+            <span className="folder-icon">📝</span>
+            <span className="folder-name">{t('sidebar.drafts')}</span>
+            {queuedDraftCount > 0 && <span className="folder-badge">{queuedDraftCount}</span>}
+          </button>
+        </div>
+
+        <div className="sidebar-unified-row">
+          <button
+            type="button"
+            className={`sidebar-folder-btn ${selectedFolderId === SCHEDULED_VIEW_ID ? 'active' : ''}`}
+            onClick={selectScheduledView}
+          >
+            <span className="folder-icon">🕒</span>
+            <span className="folder-name">{t('sidebar.scheduled')}</span>
+            {scheduledCount > 0 && <span className="folder-badge">{scheduledCount}</span>}
+          </button>
+        </div>
       </nav>
 
       <button type="button" className="add-account-btn" onClick={() => setWizardTarget('add')}>

@@ -1,91 +1,111 @@
-import { useEffect, useState } from 'react'
-import { useAccountStore } from '../store/useAccountStore'
-import { useMailStore, UNIFIED_INBOX_ID } from '../store/useMailStore'
-import { useMailDataStore } from '../store/useMailDataStore'
-import { useComposeStore } from '../store/useComposeStore'
-import MessageBody from './MessageBody'
-import ThreadSummaryCard from './ThreadSummaryCard'
-import { useT } from '../i18n/useT'
-import type { Message, Participant } from '@shared/types'
-import { encodeThreadRef } from '@shared/threadRef'
-
-function quote(text: string): string {
-  return text
-    .split('\n')
-    .map((line) => `> ${line}`)
-    .join('\n')
-}
+import { useEffect, useRef, useState } from "react";
+import { useAccountStore } from "../store/useAccountStore";
+import { useMailStore, UNIFIED_INBOX_ID } from "../store/useMailStore";
+import { useMailDataStore } from "../store/useMailDataStore";
+import { useComposeStore } from "../store/useComposeStore";
+import MessageBody from "./MessageBody";
+import ThreadSummaryCard from "./ThreadSummaryCard";
+import { useT } from "../i18n/useT";
+import type { Message, Participant } from "@shared/types";
+import { encodeThreadRef } from "@shared/threadRef";
+import { buildQuotedReplyHtml } from "../lib/richText";
 
 function previewText(bodyText: string): string {
-  const collapsed = bodyText.replace(/\s+/g, ' ').trim()
-  return collapsed.length > 140 ? `${collapsed.slice(0, 140)}…` : collapsed
+  const collapsed = bodyText.replace(/\s+/g, " ").trim();
+  return collapsed.length > 140 ? `${collapsed.slice(0, 140)}…` : collapsed;
 }
 
-function dedupeExcluding(participants: Participant[], ownEmail: string): Participant[] {
-  const seen = new Set<string>()
-  const result: Participant[] = []
+function dedupeExcluding(
+  participants: Participant[],
+  ownEmail: string,
+): Participant[] {
+  const seen = new Set<string>();
+  const result: Participant[] = [];
   for (const p of participants) {
-    const key = p.email.toLowerCase()
-    if (!p.email || key === ownEmail.toLowerCase() || seen.has(key)) continue
-    seen.add(key)
-    result.push(p)
+    const key = p.email.toLowerCase();
+    if (!p.email || key === ownEmail.toLowerCase() || seen.has(key)) continue;
+    seen.add(key);
+    result.push(p);
   }
-  return result
+  return result;
 }
 
 export default function ReadingPane() {
-  const { t, locale } = useT()
-  const accounts = useAccountStore((s) => s.accounts)
-  const selectedFolderId = useMailStore((s) => s.selectedFolderId)
-  const selectedThreadId = useMailStore((s) => s.selectedThreadId)
-  const isUnified = selectedFolderId === UNIFIED_INBOX_ID
-  const threadsByFolder = useMailDataStore((s) => s.threadsByFolder)
-  const unifiedInboxThreads = useMailDataStore((s) => s.unifiedInboxThreads)
-  const searchResults = useMailDataStore((s) => s.searchResults)
-  const threadDetails = useMailDataStore((s) => s.threadDetails)
-  const fetchThreadDetail = useMailDataStore((s) => s.fetchThreadDetail)
-  const markThreadRead = useMailDataStore((s) => s.markThreadRead)
-  const openCompose = useComposeStore((s) => s.openCompose)
-  const [refCopied, setRefCopied] = useState(false)
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const { t, locale } = useT();
+  const accounts = useAccountStore((s) => s.accounts);
+  const selectedFolderId = useMailStore((s) => s.selectedFolderId);
+  const selectedThreadId = useMailStore((s) => s.selectedThreadId);
+  const isUnified = selectedFolderId === UNIFIED_INBOX_ID;
+  const threadsByFolder = useMailDataStore((s) => s.threadsByFolder);
+  const unifiedInboxThreads = useMailDataStore((s) => s.unifiedInboxThreads);
+  const searchResults = useMailDataStore((s) => s.searchResults);
+  const threadDetails = useMailDataStore((s) => s.threadDetails);
+  const fetchThreadDetail = useMailDataStore((s) => s.fetchThreadDetail);
+  const markThreadRead = useMailDataStore((s) => s.markThreadRead);
+  const openCompose = useComposeStore((s) => s.openCompose);
+  const [refCopied, setRefCopied] = useState(false);
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const [showAllMessages, setShowAllMessages] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const foundThread =
-    (isUnified ? unifiedInboxThreads : threadsByFolder[selectedFolderId ?? ''] ?? []).find((t) => t.id === selectedThreadId) ??
-    searchResults.find((t) => t.id === selectedThreadId)
+    (isUnified
+      ? unifiedInboxThreads
+      : (threadsByFolder[selectedFolderId ?? ""] ?? [])
+    ).find((t) => t.id === selectedThreadId) ??
+    searchResults.find((t) => t.id === selectedThreadId);
 
   // Los hilos en threadsByFolder/unifiedInboxThreads/searchResults son livianos (sin el body
   // de los mensajes, ver mailRepository.ts). Acá se pide el detalle completo del hilo abierto,
   // y se vuelve a pedir si `lastMessageDate` cambió (llegó mail nuevo a este hilo mientras
   // estaba abierto) aunque ya hubiera uno en cache.
-  const cachedDetail = foundThread ? threadDetails[foundThread.id] : undefined
-  const detailThread = cachedDetail && cachedDetail.lastMessageDate === foundThread?.lastMessageDate ? cachedDetail : undefined
+  const cachedDetail = foundThread ? threadDetails[foundThread.id] : undefined;
+  const detailThread =
+    cachedDetail &&
+    cachedDetail.lastMessageDate === foundThread?.lastMessageDate
+      ? cachedDetail
+      : undefined;
 
   useEffect(() => {
     if (foundThread && !detailThread) {
-      fetchThreadDetail(foundThread.accountId, foundThread.id)
+      fetchThreadDetail(foundThread.accountId, foundThread.id);
     }
-  }, [foundThread, detailThread, fetchThreadDetail])
+  }, [foundThread, detailThread, fetchThreadDetail]);
 
   useEffect(() => {
     if (foundThread && foundThread.hasUnread) {
-      markThreadRead(foundThread.accountId, foundThread.folderId, foundThread.id)
+      markThreadRead(
+        foundThread.accountId,
+        foundThread.folderId,
+        foundThread.id,
+      );
     }
-  }, [foundThread, markThreadRead])
+  }, [foundThread, markThreadRead]);
 
   // Solo el último mensaje arranca expandido (renderiza su cuerpo/EmailBodyFrame) — los
   // anteriores quedan colapsados para no pagar el costo de parsear/montar un iframe por
   // mensaje en hilos largos apenas se abren.
   useEffect(() => {
-    if (!detailThread || detailThread.messages.length === 0) return
-    setExpandedIds(new Set([detailThread.messages[detailThread.messages.length - 1].id]))
+    if (!detailThread || detailThread.messages.length === 0) return;
+    setShowAllMessages(false);
+    setExpandedIds(
+      new Set([detailThread.messages[detailThread.messages.length - 1].id]),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailThread?.id])
+  }, [detailThread?.id]);
+
+  // En hilos largos, llevar la vista al último mensaje (el único expandido) al abrir el hilo
+  // o cuando llega un mensaje nuevo, en vez de dejar al usuario arriba del todo.
+  useEffect(() => {
+    const last = messagesRef.current?.lastElementChild;
+    if (last) last.scrollIntoView({ block: "start" });
+  }, [detailThread?.id, detailThread?.messages.length]);
 
   if (!foundThread) {
     return (
       <section className="reading-pane reading-pane-empty">
-        <p>{t('readingPane.selectConversation')}</p>
+        <p>{t("readingPane.selectConversation")}</p>
       </section>
-    )
+    );
   }
 
   if (!detailThread) {
@@ -94,68 +114,80 @@ export default function ReadingPane() {
         <header className="reading-pane-header">
           <h1>{foundThread.subject}</h1>
           <div className="reading-pane-participants">
-            {t('readingPane.participants')} {foundThread.participants.map((p) => `${p.name} <${p.email}>`).join(', ')}
+            {t("readingPane.participants")}{" "}
+            {foundThread.participants
+              .map((p) => `${p.name} <${p.email}>`)
+              .join(", ")}
           </div>
         </header>
         <div className="reading-pane-messages">
-          <p>{t('common.loading')}</p>
+          <p>{t("common.loading")}</p>
         </div>
       </section>
-    )
+    );
   }
 
-  const thread = detailThread
-  const accountId = thread.accountId
+  const thread = detailThread;
+  const accountId = thread.accountId;
 
   function formatFullDate(iso: string): string {
     return new Date(iso).toLocaleString(locale, {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
-  const lastMessage: Message = thread.messages[thread.messages.length - 1]
-  const ownEmail = accounts.find((a) => a.id === accountId)?.email ?? ''
-  const replyAllTo = dedupeExcluding([lastMessage.from, ...lastMessage.to], ownEmail)
+  const lastMessage: Message = thread.messages[thread.messages.length - 1];
+  const ownEmail = accounts.find((a) => a.id === accountId)?.email ?? "";
+  const replyAllTo = dedupeExcluding(
+    [lastMessage.from, ...lastMessage.to],
+    ownEmail,
+  );
   const replyAllCc = dedupeExcluding(lastMessage.cc, ownEmail).filter(
-    (p) => !replyAllTo.some((t) => t.email.toLowerCase() === p.email.toLowerCase())
-  )
-  const showReplyAll = replyAllTo.length + replyAllCc.length > 1
+    (p) =>
+      !replyAllTo.some((t) => t.email.toLowerCase() === p.email.toLowerCase()),
+  );
+  const showReplyAll = replyAllTo.length + replyAllCc.length > 1;
 
   function toggleExpanded(id: string): void {
     setExpandedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   function withRePrefix(subject: string): string {
-    return /^\s*re\s*:/i.test(subject) ? subject : `Re: ${subject}`
+    return /^\s*re\s*:/i.test(subject) ? subject : `Re: ${subject}`;
   }
 
   function withFwdPrefix(subject: string): string {
-    return /^\s*fwd\s*:/i.test(subject) ? subject : `Fwd: ${subject}`
+    return /^\s*fwd\s*:/i.test(subject) ? subject : `Fwd: ${subject}`;
   }
 
-  function replyQuoteBody(): string {
-    const header = t('readingPane.wroteOn', { date: formatFullDate(lastMessage.date), name: lastMessage.from.name })
-    return `\n\n${header}\n${quote(lastMessage.bodyText)}`
+  function replyQuoteHtml(): string {
+    const header = t("readingPane.wroteOn", {
+      date: formatFullDate(lastMessage.date),
+      name: `${lastMessage.from.name} <${lastMessage.from.email}>`,
+    });
+    return buildQuotedReplyHtml(header, lastMessage.bodyHtml, lastMessage.bodyText);
   }
 
   function replyContext(): string {
-    return `${lastMessage.from.name}: ${lastMessage.bodyText}`
+    return `${lastMessage.from.name}: ${lastMessage.bodyText}`;
   }
 
   function handleCopyRef(): void {
-    navigator.clipboard.writeText(encodeThreadRef(accountId, thread.id)).then(() => {
-      setRefCopied(true)
-      setTimeout(() => setRefCopied(false), 2000)
-    })
+    navigator.clipboard
+      .writeText(encodeThreadRef(accountId, thread.id))
+      .then(() => {
+        setRefCopied(true);
+        setTimeout(() => setRefCopied(false), 2000);
+      });
   }
 
   function handleReply(): void {
@@ -163,38 +195,40 @@ export default function ReadingPane() {
       accountId,
       to: lastMessage.from.email,
       subject: withRePrefix(thread.subject),
-      body: replyQuoteBody(),
+      bodyHtml: replyQuoteHtml(),
       inReplyTo: lastMessage.messageId,
       references: [...lastMessage.references, lastMessage.messageId],
-      context: replyContext()
-    })
+      context: replyContext(),
+    });
   }
 
   function handleReplyAll(): void {
     openCompose({
       accountId,
-      to: replyAllTo.map((p) => p.email).join(', '),
-      cc: replyAllCc.length ? replyAllCc.map((p) => p.email).join(', ') : undefined,
+      to: replyAllTo.map((p) => p.email).join(", "),
+      cc: replyAllCc.length
+        ? replyAllCc.map((p) => p.email).join(", ")
+        : undefined,
       subject: withRePrefix(thread.subject),
-      body: replyQuoteBody(),
+      bodyHtml: replyQuoteHtml(),
       inReplyTo: lastMessage.messageId,
       references: [...lastMessage.references, lastMessage.messageId],
-      context: replyContext()
-    })
+      context: replyContext(),
+    });
   }
 
   function handleForward(): void {
-    const header = t('readingPane.forwardedHeader')
-    const from = t('readingPane.forwardedFrom')
-    const dateLabel = t('readingPane.forwardedDate')
-    const subjectLabel = t('readingPane.forwardedSubject')
+    const header = t("readingPane.forwardedHeader");
+    const from = t("readingPane.forwardedFrom");
+    const dateLabel = t("readingPane.forwardedDate");
+    const subjectLabel = t("readingPane.forwardedSubject");
     openCompose({
       accountId,
-      to: '',
+      to: "",
       subject: withFwdPrefix(thread.subject),
       body: `\n\n${header}\n${from} ${lastMessage.from.name} <${lastMessage.from.email}>\n${dateLabel} ${formatFullDate(lastMessage.date)}\n${subjectLabel} ${thread.subject}\n\n${lastMessage.bodyText}`,
-      context: replyContext()
-    })
+      context: replyContext(),
+    });
   }
 
   return (
@@ -202,84 +236,154 @@ export default function ReadingPane() {
       <header className="reading-pane-header">
         <div className="reading-pane-title-row">
           <h1>{thread.subject}</h1>
-          <button type="button" className="reply-btn" title={t('readingPane.copyRefTitle')} onClick={handleCopyRef}>
-            {refCopied ? t('readingPane.refCopied') : t('readingPane.copyRef')}
+          <button
+            type="button"
+            className="reply-btn"
+            title={t("readingPane.copyRefTitle")}
+            onClick={handleCopyRef}
+          >
+            {refCopied ? t("readingPane.refCopied") : t("readingPane.copyRef")}
           </button>
         </div>
         <div className="reading-pane-participants">
-          {t('readingPane.participants')} {thread.participants.map((p) => `${p.name} <${p.email}>`).join(', ')}
+          {t("readingPane.participants")}{" "}
+          {thread.participants.map((p) => `${p.name} <${p.email}>`).join(", ")}
         </div>
       </header>
 
       <ThreadSummaryCard key={thread.id} thread={thread} />
 
-      <div className="reading-pane-messages">
-        {thread.messages.map((message) => (
-          <article key={message.id} className="message-card">
-            <div className="message-card-header" onClick={() => toggleExpanded(message.id)}>
-              <div className="message-card-avatar">{message.from.name.charAt(0)}</div>
-              <div className="message-card-headinfo">
-                <div className="message-card-from">
-                  {message.from.name}
-                  <span className="expand-caret">{expandedIds.has(message.id) ? '▾' : '▸'}</span>
+      <div className="reading-pane-messages" ref={messagesRef}>
+        {thread.messages.map((message, index) => {
+          // Como Gmail: en hilos largos se muestran el primero y los dos últimos, y los del
+          // medio quedan detrás de un "··· N mensajes anteriores".
+          const total = thread.messages.length;
+          const collapseMiddle = !showAllMessages && total > 4;
+          if (collapseMiddle && index > 0 && index < total - 2) {
+            if (index !== 1) return null;
+            return (
+              <button
+                key="hidden-messages"
+                type="button"
+                className="message-collapsed-bar"
+                onClick={() => setShowAllMessages(true)}
+              >
+                <span className="message-collapsed-dots">···</span>
+                {t("readingPane.hiddenMessages", { count: String(total - 3) })}
+              </button>
+            );
+          }
+          return (
+            <article key={message.id} className="message-card">
+              <div
+                className="message-card-header"
+                role="button"
+                tabIndex={0}
+                aria-expanded={expandedIds.has(message.id)}
+                onClick={() => toggleExpanded(message.id)}
+                onKeyDown={(e) => {
+                  if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    toggleExpanded(message.id);
+                  }
+                }}
+              >
+                <div className="message-card-avatar">
+                  {message.from.name.charAt(0)}
                 </div>
-                {!expandedIds.has(message.id) && <div className="message-card-date">{formatFullDate(message.date)}</div>}
-                {expandedIds.has(message.id) && (
-                  <div className="message-card-details" onClick={(e) => e.stopPropagation()}>
-                    <div className="message-detail-row">
-                      <span className="message-detail-label">{t('readingPane.detailFrom')}</span>
-                      <span>
-                        {message.from.name} &lt;{message.from.email}&gt;
-                      </span>
-                    </div>
-                    {message.to.length > 0 && (
-                      <div className="message-detail-row">
-                        <span className="message-detail-label">{t('readingPane.detailTo')}</span>
-                        <span>{message.to.map((p) => `${p.name} <${p.email}>`).join(', ')}</span>
-                      </div>
-                    )}
-                    {message.cc.length > 0 && (
-                      <div className="message-detail-row">
-                        <span className="message-detail-label">{t('readingPane.detailCc')}</span>
-                        <span>{message.cc.map((p) => `${p.name} <${p.email}>`).join(', ')}</span>
-                      </div>
-                    )}
-                    <div className="message-detail-row">
-                      <span className="message-detail-label">{t('readingPane.detailDate')}</span>
-                      <span>{formatFullDate(message.date)}</span>
-                    </div>
-                    <div className="message-detail-row">
-                      <span className="message-detail-label">{t('readingPane.detailSubject')}</span>
-                      <span>{message.subject}</span>
-                    </div>
+                <div className="message-card-headinfo">
+                  <div className="message-card-from">
+                    {message.from.name}
+                    <span className="expand-caret">
+                      {expandedIds.has(message.id) ? "▾" : "▸"}
+                    </span>
                   </div>
-                )}
+                  {!expandedIds.has(message.id) && (
+                    <div className="message-card-date">
+                      {formatFullDate(message.date)}
+                    </div>
+                  )}
+                  {expandedIds.has(message.id) && (
+                    <div
+                      className="message-card-details"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="message-detail-row">
+                        <span className="message-detail-label">
+                          {t("readingPane.detailFrom")}
+                        </span>
+                        <span>
+                          {message.from.name} &lt;{message.from.email}&gt;
+                        </span>
+                      </div>
+                      {message.to.length > 0 && (
+                        <div className="message-detail-row">
+                          <span className="message-detail-label">
+                            {t("readingPane.detailTo")}
+                          </span>
+                          <span>
+                            {message.to
+                              .map((p) => `${p.name} <${p.email}>`)
+                              .join(", ")}
+                          </span>
+                        </div>
+                      )}
+                      {message.cc.length > 0 && (
+                        <div className="message-detail-row">
+                          <span className="message-detail-label">
+                            {t("readingPane.detailCc")}
+                          </span>
+                          <span>
+                            {message.cc
+                              .map((p) => `${p.name} <${p.email}>`)
+                              .join(", ")}
+                          </span>
+                        </div>
+                      )}
+                      <div className="message-detail-row">
+                        <span className="message-detail-label">
+                          {t("readingPane.detailDate")}
+                        </span>
+                        <span>{formatFullDate(message.date)}</span>
+                      </div>
+                      <div className="message-detail-row">
+                        <span className="message-detail-label">
+                          {t("readingPane.detailSubject")}
+                        </span>
+                        <span>{message.subject}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            {expandedIds.has(message.id) ? (
-              <MessageBody message={message} />
-            ) : (
-              <div className="message-card-preview" onClick={() => toggleExpanded(message.id)}>
-                {previewText(message.bodyText)}
-              </div>
-            )}
-          </article>
-        ))}
+              {expandedIds.has(message.id) ? (
+                <MessageBody message={message} />
+              ) : (
+                <div
+                  className="message-card-preview"
+                  onClick={() => toggleExpanded(message.id)}
+                >
+                  {previewText(message.bodyText)}
+                </div>
+              )}
+            </article>
+          );
+        })}
       </div>
 
       <footer className="reply-box">
         <button className="reply-btn" onClick={handleReply}>
-          {t('readingPane.reply')}
+          {t("readingPane.reply")}
         </button>
         {showReplyAll && (
           <button className="reply-btn" onClick={handleReplyAll}>
-            {t('readingPane.replyAll')}
+            {t("readingPane.replyAll")}
           </button>
         )}
         <button className="reply-btn" onClick={handleForward}>
-          {t('readingPane.forward')}
+          {t("readingPane.forward")}
         </button>
       </footer>
     </section>
-  )
+  );
 }

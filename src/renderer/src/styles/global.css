@@ -206,7 +206,8 @@ html::-webkit-scrollbar,
   line-height: 1;
 }
 
-.sidebar-account:hover .edit-account-btn {
+.sidebar-account:hover .edit-account-btn,
+.sidebar-account:focus-within .edit-account-btn {
   opacity: 0.6;
 }
 
@@ -352,6 +353,10 @@ html::-webkit-scrollbar,
 
 .message-list-search input:focus {
   outline: none;
+}
+
+.message-list-search:focus-within {
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .search-clear-btn {
@@ -888,8 +893,13 @@ html::-webkit-scrollbar,
   border-radius: 12px;
   padding: 20px 24px;
   width: 480px;
-  max-height: 86vh;
+  min-width: 320px;
+  min-height: 200px;
+  max-width: 96vw;
+  max-height: 96vh;
   overflow-y: auto;
+  /* Todos los modales se pueden agrandar/achicar arrastrando la esquina inferior derecha */
+  resize: both;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
 }
 
@@ -1067,7 +1077,7 @@ html::-webkit-scrollbar,
 .compose-box {
   width: min(1120px, 94vw);
   height: min(92vh, 980px);
-  max-height: none;
+  max-height: 96vh;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -2365,4 +2375,93 @@ legend {
   color: var(--text-secondary);
   font-size: 12px;
   padding: 0;
+}
+
+.message-collapsed-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.message-collapsed-bar:hover {
+  background: var(--bg-hover, rgba(128, 128, 128, 0.1));
+}
+
+.message-collapsed-dots {
+  font-size: 16px;
+  letter-spacing: 2px;
+}
+
+/* --- Pulido de experiencia --- */
+
+/* Foco visible para quien navega con teclado (antes no había ningún indicador). */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+.message-row:focus-visible {
+  outline-offset: -3px;
+}
+
+.message-row.active:focus-visible,
+.sidebar-folder-btn.active:focus-visible {
+  outline-color: var(--row-active-text);
+}
+
+.message-list-search input:focus-visible,
+.compose-body:focus-visible {
+  outline: none;
+}
+
+/* Transiciones suaves en hover/estado, sin tocar el layout. */
+button,
+.message-row,
+.sidebar-folder-btn,
+.message-card-details {
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease,
+    opacity 0.12s ease;
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
+button:disabled {
+  cursor: default;
+}
+
+/* Se puede seleccionar y copiar el asunto, los participantes y los datos del remitente. */
+.reading-pane-header,
+.message-card-from,
+.message-card-date,
+.ai-summary-card {
+  user-select: text;
+}
+
+.message-card-header:hover .message-card-from {
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

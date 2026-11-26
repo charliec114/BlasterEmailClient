@@ -235,10 +235,10 @@ export default function ComposeModal({ draft }: ComposeModalProps) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-box compose-box">
+      <div className="modal-box compose-box" role="dialog" aria-modal="true">
         <div className="modal-header-row compose-header">
           <h2>{t('composeModal.newMessageTitle')}</h2>
-          <button type="button" className="modal-close-btn" title={t('common.close')} onClick={handleClose}>
+          <button type="button" className="modal-close-btn" title={t('common.close')} aria-label={t('common.close')} onClick={handleClose}>
             ✕
           </button>
         </div>

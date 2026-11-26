@@ -3,6 +3,7 @@ import { useAccountStore } from '../store/useAccountStore'
 import { useComposeStore } from '../store/useComposeStore'
 import { useT } from '../i18n/useT'
 import type { Contact } from '@shared/types'
+import { useEscapeKey } from '../lib/useEscapeKey'
 
 interface ContactsModalProps {
   onClose: () => void
@@ -14,6 +15,7 @@ function errorMessage(error: unknown): string {
 
 export default function ContactsModal({ onClose }: ContactsModalProps) {
   const { t } = useT()
+  useEscapeKey(onClose)
   const accounts = useAccountStore((s) => s.accounts)
   const openCompose = useComposeStore((s) => s.openCompose)
   const [contacts, setContacts] = useState<Contact[]>([])
@@ -71,10 +73,10 @@ export default function ContactsModal({ onClose }: ContactsModalProps) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-box contacts-box">
+      <div className="modal-box contacts-box" role="dialog" aria-modal="true">
         <div className="modal-header-row">
           <h2>{t('contactsModal.title')}</h2>
-          <button type="button" className="modal-close-btn" title={t('common.close')} onClick={onClose}>
+          <button type="button" className="modal-close-btn" title={t('common.close')} aria-label={t('common.close')} onClick={onClose}>
             ✕
           </button>
         </div>
